@@ -34,19 +34,46 @@ vision this roadmap implements.
 
 **Goal:** a working journal. Hardcoded modules proving the schema.
 
-- [ ] Vite + React setup
-- [ ] Canvas component with dot-grid
-- [ ] Markdown editor with `[[link]]` support
-- [ ] SQLite (IndexedDB) CRUD wired to the UI
-- [ ] Tri-state toggle in UI
-- [ ] 2-3 hardcoded modules (habit tracker, line chart) — no editor UI
-- [ ] First live adapter: Spotify (`authType: 'pkce'`) — the one provider
-      where a secretless flow genuinely works from a pure web context
-- [ ] Basic import/export (JSON)
+- [x] Vite + React setup
+- [x] Canvas component with dot-grid (pan/zoom via React-Konva, `canvasConfig`
+      persisted per entry)
+- [x] Markdown editor with `[[link]]` support (edit/preview, backlinks panel,
+      click-to-navigate, creates a stub entry if the target doesn't exist)
+- [x] SQLite (IndexedDB) CRUD wired to the UI
+- [x] Tri-state toggle in UI
+- [x] 2-3 hardcoded modules (habit streak grid, mood line chart) — no editor UI
+- [x] First live adapter: **weather** (`authType: 'api_key'`), supporting
+      both OpenWeatherMap and Weatherstack — live-verified end to end via
+      Weatherstack (real 200 response, correctly parsed and rendered,
+      gated behind Connected/AI mode by the network toggle). OpenWeatherMap
+      code path is written and matches their documented response shape but
+      unverified live — the test key returned 401 both times we checked,
+      consistent with their documented "new keys take up to ~2 hours to
+      activate," not a code problem.
+- [x] Basic import/export (JSON) — full round-trip verified (export → delete
+      all → import → data restored)
 
-**Success criteria:** you can journal daily. Modules render hardcoded data.
-Gatekeeper works. The Spotify adapter proves a real `guardedFetch`-routed
-network call end to end.
+**First live adapter — how we actually got here:** Spotify (`pkce`) was the
+original plan since it's the one provider with genuinely CORS-enabled,
+secretless PKCE from a pure browser — but the Spotify account being
+developed against is gated behind Premium for Web API access, blocking live
+verification today (code is not written; revisit once Premium is active).
+GitHub (`device_flow`) was tried next, and its code is complete in
+[`apps/web/src/adapters/github.ts`](apps/web/src/adapters/github.ts) and
+[`GithubModule.tsx`](apps/web/src/components/modules/GithubModule.tsx) — but
+**GitHub's device-flow token endpoints don't send CORS headers at all**,
+confirmed by live testing (`net::ERR_FAILED` before the request even reaches
+GitHub). That's not a secret-in-browser problem like Google's — it's that
+the endpoint refuses direct browser `fetch()` full stop. The fix isn't the
+Phase 5 backend relay; it's Tauri's native HTTP client once Phase 3 exists,
+which isn't subject to browser CORS at all (see Phase 3 note below). The
+component is intentionally left out of the shipped dashboard for now so we
+don't ship a button that always errors. OpenWeatherMap (`api_key`, no OAuth
+at all) has neither problem and is what's actually live today.
+
+**Success criteria:** you can journal daily. Modules render live data.
+Gatekeeper works. The weather adapter proves a real `guardedFetch`-routed
+network call end to end, verified live against the real API.
 
 ## Phase 1.5: Polish (4 weeks)
 
@@ -87,8 +114,15 @@ including at least one `merge` module (e.g. mood vs. Spotify minutes).
 - [ ] Google Calendar adapter (`authType: 'oauth_loopback'`) — only viable
       here, not on web, since it needs a local loopback listener for the
       redirect
+- [ ] Route adapter network calls through Tauri's Rust-side HTTP client
+      instead of the webview's `fetch()` — this is also what unblocks the
+      GitHub `device_flow` adapter (code already written in Phase 1, blocked
+      purely by browser CORS, not by needing a secret): a native HTTP
+      request isn't subject to CORS at all, so this fixes both adapters at
+      once without needing the Phase 5 backend
 
 **Success criteria:** desktop app runs, saves to `~/Documents/BulletSpace/`.
+GitHub and Google Calendar adapters both go live here, backend-free.
 
 ## Phase 4: Manual Sharing (4-6 weeks)
 
@@ -97,29 +131,49 @@ building a marketplace UI.
 
 - [ ] Export/import module + adapter JSON (copy-paste or paste-a-gist-URL level)
 - [ ] Secretless adapters only, first-party (`pkce`, `oauth_loopback`,
-      `device_flow`, `api_key`) — no `oauth_client_secret` adapters yet
+      `device_flow` — the latter two require Desktop from Phase 3, per the
+      CORS finding above — and `api_key`, which has worked since Phase 1) —
+      no `oauth_client_secret` adapters yet
 - [ ] No editor, no browse UI — this is the cheap test
 
 **Success criteria:** you and a few trusted creators manually share 5-10
 modules with each other. If this works, Phase 5+ is justified. If it
 doesn't, stop here rather than building a marketplace nobody uses.
 
-## Phase 5: Auth & Sync (10-12 weeks)
+## Phase 5: Optional Backend — Auth, Sync, OAuth Relay (10-12 weeks)
 
-**Goal:** now there's a backend — use it to close the OAuth gap.
+**Goal:** introduce a backend, but only as an opt-in, open-source,
+self-hostable *add-on* — never a requirement. Local Purist mode never
+touches it; the gatekeeper enforces that as a hard technical guarantee, not
+a policy promise. Phases 1-4 shipped a fully backend-free app; this is the
+first phase that adds one, and only for the two modes that already involve
+leaving the device (Connected, AI).
 
-- [ ] Auth.js integration (Google, GitHub)
-- [ ] Supabase/PocketBase setup
-- [ ] Client-side encryption layer (password-based)
+The backend is stateless and ephemeral — it never stores user data except
+client-side-encrypted sync blobs it can't read. Users get three tiers of
+trust: use a public hosted instance (convenient), self-host their own
+(maximum privacy), or skip it entirely (Local Purist, always available).
+Same model as Obsidian Sync or Anytype's optional sync layer.
+
+- [ ] Auth.js integration (Google, GitHub) for accounts (separate from the
+      adapter OAuth below)
+- [ ] Supabase/PocketBase setup, deployable to Cloudflare Workers/Vercel or
+      self-hosted
+- [ ] Client-side encryption layer (password-based) for sync
 - [ ] Encrypted sync across devices
 - [ ] OAuth relay for `oauth_client_secret` adapters — providers with no
-      secretless path at all. (Spotify and GitHub don't need this — PKCE
-      and device flow respectively, both already working since Phase 1/4.
-      Google Calendar doesn't need it on desktop either, via loopback
-      redirect since Phase 3 — this relay is for whatever's left over.)
+      secretless path at all, on any platform. (By this point, PKCE and
+      `api_key` adapters have worked since Phase 1, and `oauth_loopback` /
+      `device_flow` adapters since Phase 3's Desktop + native HTTP client —
+      this relay is for whatever's genuinely left over, e.g. a provider
+      that only supports confidential-client OAuth everywhere.)
+- [ ] AI proxy (optional; bring-your-own-key still works without this)
+- [ ] Marketplace API backing Phase 6
 
-**Success criteria:** sync works. Any remaining confidential-secret
-adapters can now authenticate securely via the relay.
+**Success criteria:** sync works via the public instance or a self-hosted
+one. Any remaining confidential-secret adapters can now authenticate
+securely via the relay. Local Purist mode, verified by the gatekeeper,
+still makes zero network calls.
 
 ## Phase 6: The Expensive Stuff (12+ weeks, ongoing)
 
@@ -164,16 +218,16 @@ policy that cost engineering time, and both are deferred to Phase 6.
 
 ## Summary
 
-| Phase | Focus | Timeline | Key deliverables |
-|---|---|---|---|
-| 0 | Core library | 2-3wk | Types, gatekeeper, DB adapters, schema |
-| 1 | Web MVP | 12-16wk | Canvas, Markdown, SQLite, 2-3 modules |
-| 1.5 | Polish | 4wk | Bug fixes, UX |
-| 2 | Query engine | 8-10wk | Unified pipeline, merge joins, cache, 10+ modules |
-| 3 | Desktop | 4-6wk | Tauri, file system |
-| 4 | Manual sharing | 4-6wk | Export/import JSON (cheap demand test) |
-| 5 | Auth & sync | 10-12wk | OAuth relay, encrypted sync |
-| 6 | Platform | 12+wk | Visual editor, marketplace, trusted creators |
+| Phase | Focus | Backend required? | Timeline | Key deliverables |
+|---|---|---|---|---|
+| 0 | Core library | No | 2-3wk | Types, gatekeeper, DB adapters, schema |
+| 1 | Web MVP | No | 12-16wk | Canvas, Markdown, SQLite, hardcoded modules, weather adapter |
+| 1.5 | Polish | No | 4wk | Bug fixes, UX |
+| 2 | Query engine | No | 8-10wk | Unified pipeline, merge joins, cache, 10+ modules |
+| 3 | Desktop | No | 4-6wk | Tauri, file system, native HTTP client unblocks GitHub/Google |
+| 4 | Manual sharing | No | 4-6wk | Export/import JSON (cheap demand test) |
+| 5 | Optional backend | Yes (opt-in, self-hostable) | 10-12wk | OAuth relay, encrypted sync, AI proxy |
+| 6 | Platform | Yes (same backend) | 12+wk | Visual editor, marketplace, trusted creators |
 
 **Total to a usable v1** (through Phase 3): ~30-39 weeks of nights/weekends.
 **Total to a validated sharing model** (through Phase 4): add 4-6 weeks.

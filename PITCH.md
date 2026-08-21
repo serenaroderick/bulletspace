@@ -34,6 +34,40 @@ payload, and its destination.
 rule, not just a class: it's the difference between the toggle being real and
 the toggle being decorative. See [`packages/core/src/gatekeeper.ts`](packages/core/src/gatekeeper.ts).
 
+## The Optional Backend (Phase 5+)
+
+Local Purist mode is backend-free — a hard guarantee enforced by the
+gatekeeper, not a policy promise. No network calls, no OAuth relays, no
+servers; all data in local SQLite.
+
+Some adapters need more than Local Purist mode can offer without leaving the
+device — specifically, providers whose OAuth requires a confidential
+`client_secret` with no public-client alternative anywhere. Rather than
+compromise (e.g. embedding a secret in the browser bundle) or block those
+providers forever, Phase 5 adds a backend — but only as an **opt-in,
+open-source, self-hostable** add-on that Connected/AI modes may use:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    LOCAL PURIST MODE                         │
+│  No backend calls. All data in local SQLite. No OAuth.        │
+└─────────────────────────────────────────────────────────────┘
+                              │ user toggles to Connected/AI
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│              OPTIONAL BACKEND (self-hostable)                │
+│  OAuth relay · encrypted sync · AI proxy · marketplace API    │
+│  Stateless — never stores user data except client-encrypted   │
+│  sync blobs it can't read                                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Three trust tiers, user's choice: use a public hosted instance
+(convenient, but trust required), self-host your own (maximum privacy, no
+trust required), or skip it entirely (Local Purist, always available, no
+backend exists in that mode regardless of what's deployed elsewhere). Same
+model as Obsidian Sync or Anytype's optional sync layer.
+
 ## The Module Ecosystem
 
 | Layer | What it does | Example |
@@ -95,18 +129,35 @@ implementation deferred to the phase noted):
 - **OAuth in a backend-less app** — adapters declare an explicit
   `authType`, and support varies by provider in ways worth being precise
   about:
-  - `pkce` (e.g. Spotify): standards-compliant, secretless, works from a
-    pure web context. Ships in Phase 1.
+  - `pkce` (e.g. Spotify): standards-compliant, secretless, and Spotify's
+    token endpoint is explicitly CORS-enabled for this — genuinely works
+    from a pure web context. Code isn't written yet; the account being
+    developed against needs Premium for Web API access, which blocked live
+    verification, so this is deferred until that's active rather than
+    shipped unverified.
   - `oauth_loopback` (e.g. Google): secretless only when registered as a
     "Desktop app" OAuth client using a loopback redirect — a "Web
     application" client type still requires a confidential secret at the
     token endpoint even with PKCE, per Google's own docs. This only works
-    from **Tauri desktop (Phase 3)**, not the web app.
-  - `device_flow` (e.g. GitHub, which has no PKCE support for classic
-    OAuth Apps): secretless via a user-facing device code, the same flow
-    `gh auth login` uses. Different UX than a redirect popup.
-  - `oauth_client_secret`: needs the Phase 5 OAuth relay regardless of UI
-    platform.
+    from **Tauri desktop (Phase 3)**, not the web app — and putting the
+    secret in the browser bundle instead is a real anti-pattern the moment
+    this app is ever deployed publicly, so it's not a shortcut worth taking
+    even for local-only use now.
+  - `device_flow` (e.g. GitHub): the OAuth mechanics are secretless, but
+    **GitHub's device-flow token endpoints don't send CORS headers at
+    all** — confirmed by live testing, `fetch()` fails before the request
+    even reaches GitHub. This is a harder blocker than Google's, and a
+    different one: it's not about a secret, browsers just can't call these
+    endpoints directly, full stop. The fix is Tauri's native HTTP client
+    (Phase 3), which isn't subject to browser CORS — not the Phase 5 relay.
+    Adapter code is written ([`github.ts`](apps/web/src/adapters/github.ts))
+    but not wired into the shipped UI until Phase 3.
+  - `api_key` (e.g. OpenWeatherMap): no OAuth at all, no CORS issue, no
+    secret-exposure concern — just an API key pasted into settings. This
+    ended up being Phase 1's actual first live adapter, once both `pkce`
+    and `device_flow` hit real-world blockers the schema didn't predict.
+  - `oauth_client_secret`: needs the Phase 5 backend relay regardless of UI
+    platform — see "The Optional Backend" above.
   - The gatekeeper enforces this too: an adapter needing network access
     that Local Purist mode blocks should surface as "this adapter requires
     Connected or AI mode," not a silent failure.

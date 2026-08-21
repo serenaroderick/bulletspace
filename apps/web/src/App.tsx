@@ -1,11 +1,15 @@
 import type { CanvasConfig, Entry, Journal, NetworkState } from "@bulletspace/core";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type ChangeEvent, type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
 import { EntryCanvas } from "./components/EntryCanvas";
 import { EntryView } from "./components/EntryView";
+import { HabitStreakModule } from "./components/modules/HabitStreakModule";
+import { MoodLineChart } from "./components/modules/MoodLineChart";
+import { WeatherModule } from "./components/modules/WeatherModule";
 import { NetworkToggle } from "./components/NetworkToggle";
 import { db, ensureDbInitialized } from "./lib/db";
 import { gatekeeper } from "./lib/gatekeeper";
+import { parseJournalExport, serializeJournalExport } from "./lib/importExport";
 
 function newId(): string {
   return crypto.randomUUID();
@@ -18,8 +22,11 @@ export default function App() {
   const [networkState, setNetworkState] = useState<NetworkState>(gatekeeper.getState());
   const [draftTitle, setDraftTitle] = useState("");
   const [draftContent, setDraftContent] = useState("");
+  const [draftMood, setDraftMood] = useState("");
   const [openEntryId, setOpenEntryId] = useState<string | null>(null);
   const [viewEntryId, setViewEntryId] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const loadEntries = useCallback(async (journalId: string) => {
     const loaded = await db.listEntriesByJournal(journalId);
@@ -50,13 +57,14 @@ export default function App() {
       if (!journal || !draftTitle.trim()) return;
 
       const now = Date.now();
+      const parsedMood = draftMood.trim() === "" ? null : Number(draftMood);
       const entry: Entry = {
         id: newId(),
         journalId: journal.id,
         title: draftTitle.trim(),
         content: draftContent,
         canvasConfig: { gridType: "dot", zoom: 1, scrollX: 0, scrollY: 0 },
-        mood: null,
+        mood: Number.isFinite(parsedMood) ? parsedMood : null,
         energy: null,
         focus: null,
         tags: [],
@@ -67,9 +75,10 @@ export default function App() {
       await db.createEntry(entry);
       setDraftTitle("");
       setDraftContent("");
+      setDraftMood("");
       await loadEntries(journal.id);
     },
-    [journal, draftTitle, draftContent, loadEntries],
+    [journal, draftTitle, draftContent, draftMood, loadEntries],
   );
 
   const handleDeleteEntry = useCallback(
@@ -133,6 +142,47 @@ export default function App() {
     [entries, journal],
   );
 
+  const handleExport = useCallback(() => {
+    if (!journal) return;
+    const blob = new Blob([JSON.stringify(serializeJournalExport(journal, entries), null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${journal.title.replace(/\s+/g, "-").toLowerCase()}-export.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, [journal, entries]);
+
+  const handleImportFileChange = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = "";
+      if (!file || !journal) return;
+
+      setImportError(null);
+      try {
+        const raw = await file.text();
+        const parsed = parseJournalExport(raw);
+
+        const existingIds = new Set(entries.map((entry) => entry.id));
+        for (const imported of parsed.entries) {
+          const entry: Entry = { ...imported, journalId: journal.id };
+          if (existingIds.has(entry.id)) {
+            await db.updateEntry(entry.id, entry);
+          } else {
+            await db.createEntry(entry);
+          }
+        }
+        await loadEntries(journal.id);
+      } catch (error) {
+        setImportError(error instanceof Error ? error.message : "Import failed.");
+      }
+    },
+    [journal, entries, loadEntries],
+  );
+
   if (!ready || !journal) {
     return <div className="loading">Loading…</div>;
   }
@@ -168,10 +218,32 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <h1>{journal.title}</h1>
-        <NetworkToggle state={networkState} onChange={handleNetworkStateChange} />
+        <div className="header-actions">
+          <button type="button" onClick={handleExport}>
+            Export JSON
+          </button>
+          <button type="button" onClick={() => importInputRef.current?.click()}>
+            Import JSON
+          </button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept="application/json"
+            className="visually-hidden"
+            onChange={handleImportFileChange}
+          />
+          <NetworkToggle state={networkState} onChange={handleNetworkStateChange} />
+        </div>
       </header>
+      {importError && <p className="import-error">{importError}</p>}
 
       <main className="app-main">
+        <div className="dashboard">
+          <HabitStreakModule entries={entries} />
+          <MoodLineChart entries={entries} />
+          <WeatherModule networkState={networkState} />
+        </div>
+
         <form className="entry-form" onSubmit={handleCreateEntry}>
           <input
             value={draftTitle}
@@ -185,6 +257,15 @@ export default function App() {
             placeholder="Write in Markdown…"
             rows={4}
             aria-label="Entry content"
+          />
+          <input
+            value={draftMood}
+            onChange={(event) => setDraftMood(event.target.value)}
+            placeholder="Mood (1-10, optional)"
+            aria-label="Entry mood"
+            type="number"
+            min={1}
+            max={10}
           />
           <button type="submit">Add entry</button>
         </form>
