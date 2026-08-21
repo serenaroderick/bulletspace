@@ -1,4 +1,5 @@
 export * from "./types.js";
+export * from "./modules.js";
 export * from "./gatekeeper.js";
 export * from "./db/adapter.js";
 export * from "./db/inMemoryAdapter.js";

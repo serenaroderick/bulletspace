@@ -82,20 +82,53 @@ exported as JSON and shared, regardless of how it was built.
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Known open questions in this design** (not yet resolved, tracked here
-rather than solved prematurely):
+**Design gaps and their resolutions** (schema-level decisions made now;
+implementation deferred to the phase noted):
 
-- One adapter per module for v1 — cross-source correlation (e.g. mood vs.
-  Spotify minutes) needs a join/merge model that doesn't exist yet.
-- OAuth in a backend-less app: v1 adapters are PKCE or API-key only.
-  Adapters needing a confidential secret wait for Phase 5 (Auth & Sync),
-  which stands up a backend anyway and can double as an OAuth relay.
-- The original "Reactive Data Engine" (Excel-style formulas) and the
-  YAML "Query Block" concept overlap — these should be merged into one
-  engine before Phase 2, not built twice.
-- No caching/offline story yet for adapter-sourced data.
-- No versioning story yet for adapter/module schemas shared on the
-  marketplace.
+- **Cross-source correlation** (e.g. mood vs. Spotify minutes) — `Module`
+  gets a first-class `type: 'merge'` alongside `'single'`, with multiple
+  `sources` and a `joinOn` key. The exact join semantics (inner vs. left,
+  date-truncation granularity) are deliberately left unspecified until
+  Phase 2 — reserving the schema slot now avoids a breaking change later
+  without forcing a decision we can't make well yet. See
+  [`packages/core/src/modules.ts`](packages/core/src/modules.ts).
+- **OAuth in a backend-less app** — adapters declare an explicit
+  `authType`, and support varies by provider in ways worth being precise
+  about:
+  - `pkce` (e.g. Spotify): standards-compliant, secretless, works from a
+    pure web context. Ships in Phase 1.
+  - `oauth_loopback` (e.g. Google): secretless only when registered as a
+    "Desktop app" OAuth client using a loopback redirect — a "Web
+    application" client type still requires a confidential secret at the
+    token endpoint even with PKCE, per Google's own docs. This only works
+    from **Tauri desktop (Phase 3)**, not the web app.
+  - `device_flow` (e.g. GitHub, which has no PKCE support for classic
+    OAuth Apps): secretless via a user-facing device code, the same flow
+    `gh auth login` uses. Different UX than a redirect popup.
+  - `oauth_client_secret`: needs the Phase 5 OAuth relay regardless of UI
+    platform.
+  - The gatekeeper enforces this too: an adapter needing network access
+    that Local Purist mode blocks should surface as "this adapter requires
+    Connected or AI mode," not a silent failure.
+- **Reactive Data Engine vs. YAML Query Blocks** — merged into one
+  pipeline: fetch → merge/join → filter → formula → sort/group → output.
+  Modules carry an ordered `transformations` array (filter/formula/sort/
+  group) that applies regardless of whether the module is `single` or
+  `merge` — there is no separate "formula module" type, since that would
+  just be a `single` module with a formula transformation. Schema now,
+  full pipeline implementation in Phase 2 (renamed "Query Engine").
+- **Caching/offline for adapter data** — stale-while-revalidate: each
+  `AdapterDefinition` declares its own `defaultTtlSeconds` (an
+  append-only history like Spotify's tolerates a much longer TTL than a
+  mutable calendar, so this is adapter-level, not one global constant),
+  and every `DataPayload` carries `_cachedAt`/`_source` metadata.
+  Implementation (SQLite-backed cache, offline banner) lands in Phase 2.
+- **Versioning for shared adapter/module schemas** — both
+  `AdapterDefinition` and `ModuleDefinition` carry a `version: string`
+  field starting now. A `migrations` mechanism is deliberately **not**
+  added yet — its shape can't be designed correctly before a real schema
+  change happens to inform it. That's a Phase 5 addition, once the
+  marketplace exists and compatibility actually matters.
 
 ## Tech Stack
 
