@@ -5,6 +5,7 @@ import { EntryCanvas } from "./components/EntryCanvas";
 import { EntryView } from "./components/EntryView";
 import { HabitStreakModule } from "./components/modules/HabitStreakModule";
 import { MoodLineChart } from "./components/modules/MoodLineChart";
+import { MoodVsWeatherModule } from "./components/modules/MoodVsWeatherModule";
 import { WeatherModule } from "./components/modules/WeatherModule";
 import { NetworkToggle } from "./components/NetworkToggle";
 import { db, ensureDbInitialized } from "./lib/db";
@@ -246,6 +247,7 @@ export default function App() {
         <div className="dashboard">
           <HabitStreakModule entries={entries} />
           <MoodLineChart entries={entries} />
+          <MoodVsWeatherModule entries={entries} />
           <WeatherModule networkState={networkState} />
         </div>
 

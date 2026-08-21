@@ -1,6 +1,6 @@
 import { type DBSchema, type IDBPDatabase, openDB } from "idb";
 import type { CanvasElement, Entry, Journal } from "../types.js";
-import type { DatabaseAdapter } from "./adapter.js";
+import type { AdapterCacheEntry, DatabaseAdapter } from "./adapter.js";
 
 interface BulletSpaceDB extends DBSchema {
   journals: {
@@ -17,10 +17,14 @@ interface BulletSpaceDB extends DBSchema {
     value: CanvasElement;
     indexes: { entryId: string };
   };
+  adapterCache: {
+    key: string;
+    value: AdapterCacheEntry;
+  };
 }
 
 const DEFAULT_DB_NAME = "bulletspace";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 /**
  * Web adapter backed by IndexedDB. Requires a browser (or a browser-like
@@ -34,13 +38,23 @@ export class IndexedDBAdapter implements DatabaseAdapter {
   async init(): Promise<void> {
     this.db = await openDB<BulletSpaceDB>(this.dbName, DB_VERSION, {
       upgrade(db) {
-        db.createObjectStore("journals", { keyPath: "id" });
+        if (!db.objectStoreNames.contains("journals")) {
+          db.createObjectStore("journals", { keyPath: "id" });
+        }
 
-        const entries = db.createObjectStore("entries", { keyPath: "id" });
-        entries.createIndex("journalId", "journalId");
+        if (!db.objectStoreNames.contains("entries")) {
+          const entries = db.createObjectStore("entries", { keyPath: "id" });
+          entries.createIndex("journalId", "journalId");
+        }
 
-        const canvasElements = db.createObjectStore("canvasElements", { keyPath: "id" });
-        canvasElements.createIndex("entryId", "entryId");
+        if (!db.objectStoreNames.contains("canvasElements")) {
+          const canvasElements = db.createObjectStore("canvasElements", { keyPath: "id" });
+          canvasElements.createIndex("entryId", "entryId");
+        }
+
+        if (!db.objectStoreNames.contains("adapterCache")) {
+          db.createObjectStore("adapterCache", { keyPath: "adapterId" });
+        }
       },
     });
   }
@@ -110,5 +124,13 @@ export class IndexedDBAdapter implements DatabaseAdapter {
 
   async deleteCanvasElement(id: string): Promise<void> {
     await this.connection.delete("canvasElements", id);
+  }
+
+  async getCachedAdapterData(adapterId: string): Promise<AdapterCacheEntry | undefined> {
+    return this.connection.get("adapterCache", adapterId);
+  }
+
+  async setCachedAdapterData(entry: AdapterCacheEntry): Promise<void> {
+    await this.connection.put("adapterCache", entry);
   }
 }

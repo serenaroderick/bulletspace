@@ -12,7 +12,11 @@ export const weatherAdapterDefinition: AdapterDefinition = {
   authType: "api_key",
   defaultTtlSeconds: 30 * 60,
   fields: [
-    { id: "recorded_at", name: "Recorded At", type: "date", description: "" },
+    // "date" is a convention, not a coincidence: adapters meant to
+    // participate in a merge module must share the join-key field name --
+    // the query engine merges on `row[joinOn]` per source, not by inferred
+    // semantic meaning. See journalAdapterDefinition for the other side.
+    { id: "date", name: "Date", type: "date", description: "" },
     { id: "temperature_c", name: "Temperature (°C)", type: "number", description: "" },
     { id: "condition", name: "Condition", type: "string", description: "" },
     { id: "humidity", name: "Humidity (%)", type: "number", description: "" },
@@ -62,7 +66,7 @@ async function fetchFromOpenWeatherMap(apiKey: string, city: string): Promise<Da
     fields: weatherAdapterDefinition.fields,
     rows: [
       {
-        recorded_at: new Date(json.dt * 1000).toISOString(),
+        date: new Date(json.dt * 1000).toISOString(),
         temperature_c: json.main.temp,
         condition: json.weather[0]?.description ?? "unknown",
         humidity: json.main.humidity,
@@ -96,7 +100,7 @@ async function fetchFromWeatherstack(apiKey: string, city: string): Promise<Data
     fields: weatherAdapterDefinition.fields,
     rows: [
       {
-        recorded_at: new Date(json.location.localtime_epoch * 1000).toISOString(),
+        date: new Date(json.location.localtime_epoch * 1000).toISOString(),
         temperature_c: json.current.temperature,
         condition: json.current.weather_descriptions[0] ?? "unknown",
         humidity: json.current.humidity,

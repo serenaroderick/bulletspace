@@ -101,19 +101,52 @@ network call end to end, verified live against the real API.
 sort/group → output) replacing the separate "Reactive Data Engine" and
 "YAML Query Block" concepts — not built twice.
 
-- [ ] Charts (bar, line, scatter)
-- [ ] Reactive tables (Airtable-like), built on the same pipeline as charts
-- [ ] `merge` module type implemented — decide join semantics (inner vs.
-      left join, date-truncation granularity) that were deliberately left
-      unresolved in the Phase 0 schema
-- [ ] SQLite-backed cache for adapter data (stale-while-revalidate, keyed
-      off each adapter's `defaultTtlSeconds`) + offline banner
-- [ ] More hardcoded modules (mood tracker, workout log, sleep log, etc.)
+- [x] `merge` module type implemented — join semantics resolved: inner or
+      left join, day/week/month/exact granularity (day is the default,
+      matching the shape every adapter built so far actually produces —
+      one reading per day). Simplification: only the first row per join
+      key per source is used; this is not a full relational join engine.
+      See [`packages/core/src/queryEngine.ts`](packages/core/src/queryEngine.ts).
+      One real gap this surfaced: the join key field name must match
+      *exactly* across every source's raw row (`row[joinOn]`, no semantic
+      inference) — `weatherAdapterDefinition` originally used `recorded_at`
+      while `journalAdapterDefinition` used `date`, which silently
+      produced zero merged rows until caught by live testing. Fixed by
+      standardizing on `date` as the join-key convention; documented in
+      both adapter files.
+- [x] The rest of the unified pipeline: `filter`/`formula`/`sort`/`group`
+      transformations, all tested. Filter/formula expressions are
+      deliberately minimal (`"field > value"`, `"target = a + b"`) and
+      **not** `eval()`/`new Function()` — no arbitrary code, matching the
+      declarative-Modules trust tier from PITCH.md. `group` sums every
+      numeric field per group key; there's no per-field aggregation
+      function in the schema yet, so this is a documented default rather
+      than a richer aggregation DSL that isn't needed yet.
+- [x] SQLite-backed cache for adapter data (stale-while-revalidate, keyed
+      off each adapter's `defaultTtlSeconds`) — `DatabaseAdapter` gained
+      `getCachedAdapterData`/`setCachedAdapterData`, backed by a new
+      IndexedDB object store (`IndexedDBAdapter` bumped to schema v2, with
+      an upgrade path that doesn't disturb existing stores). SWR fetch
+      helper in `apps/web/src/lib/adapterCache.ts`: returns cached data
+      immediately (fresh or stale), and if stale, revalidates in the
+      background and updates the UI when that resolves.
+- [x] Offline banner — `useOnlineStatus()` hook + a banner shown in the
+      Weather module when offline, naming the cached-from time.
+- [x] First real `merge` module: **Mood vs. Weather**, wired end to end
+      through the query engine — a `journal` pseudo-adapter wraps local
+      entries (mood/energy/focus) as a query-engine data source, joined
+      against the cached weather payload on `date`. Verified live: created
+      a mood-8 entry, connected weather, got a real correlated row
+      (`2026-08-21, mood 8, 14°C`) with zero console errors.
+- [ ] Charts (bar, scatter) beyond the existing hardcoded line chart
+- [ ] Reactive tables (Airtable-like), built on the same pipeline
+- [ ] More hardcoded modules (workout log, sleep log, etc.)
 
 Grows the template count without building a Template Library *system* yet.
 
 **Success criteria:** 10+ hardcoded modules you actually use daily,
-including at least one `merge` module (e.g. mood vs. Spotify minutes).
+including at least one `merge` module (e.g. mood vs. weather) — **done**
+for the merge module; still short of 10 total modules.
 
 ## Phase 3: Desktop Port (4-6 weeks)
 

@@ -127,4 +127,39 @@ describe.each(adapters)("%s", (_name, createAdapter) => {
   it("throws when updating a journal that does not exist", async () => {
     await expect(adapter.updateJournal("missing", { title: "x" })).rejects.toThrow();
   });
+
+  it("returns undefined for uncached adapter data", async () => {
+    expect(await adapter.getCachedAdapterData("weather-v1")).toBeUndefined();
+  });
+
+  it("caches and retrieves adapter data", async () => {
+    const entry = {
+      adapterId: "weather-v1",
+      payload: {
+        fields: [{ id: "temp", name: "Temp", type: "number" as const, description: "" }],
+        rows: [{ temp: 20 }],
+        _cachedAt: new Date(0).toISOString(),
+        _source: "weather-v1",
+      },
+      cachedAt: 1000,
+    };
+    await adapter.setCachedAdapterData(entry);
+    expect(await adapter.getCachedAdapterData("weather-v1")).toEqual(entry);
+  });
+
+  it("overwrites cached adapter data for the same adapter id", async () => {
+    const makeCacheEntry = (cachedAt: number) => ({
+      adapterId: "weather-v1",
+      payload: {
+        fields: [],
+        rows: [],
+        _cachedAt: new Date(cachedAt).toISOString(),
+        _source: "weather-v1",
+      },
+      cachedAt,
+    });
+    await adapter.setCachedAdapterData(makeCacheEntry(1000));
+    await adapter.setCachedAdapterData(makeCacheEntry(2000));
+    expect((await adapter.getCachedAdapterData("weather-v1"))?.cachedAt).toBe(2000);
+  });
 });

@@ -369,3 +369,25 @@
   text-decoration: underline;
   cursor: pointer;
 }
+
+.merge-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.merge-table th,
+.merge-table td {
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid #8883;
+}
+
+.offline-banner {
+  background: #f5a6231a;
+  border: 1px solid #f5a62355;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  margin: 0 0 0.5rem;
+}

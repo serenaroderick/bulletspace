@@ -1,5 +1,5 @@
 import type { CanvasElement, Entry, Journal } from "../types.js";
-import type { DatabaseAdapter } from "./adapter.js";
+import type { AdapterCacheEntry, DatabaseAdapter } from "./adapter.js";
 
 /**
  * Reference implementation used in tests and as a fallback. Not persisted.
@@ -8,6 +8,7 @@ export class InMemoryAdapter implements DatabaseAdapter {
   private journals = new Map<string, Journal>();
   private entries = new Map<string, Entry>();
   private canvasElements = new Map<string, CanvasElement>();
+  private adapterCache = new Map<string, AdapterCacheEntry>();
 
   async init(): Promise<void> {
     // Nothing to initialize for an in-memory store.
@@ -73,5 +74,13 @@ export class InMemoryAdapter implements DatabaseAdapter {
 
   async deleteCanvasElement(id: string): Promise<void> {
     this.canvasElements.delete(id);
+  }
+
+  async getCachedAdapterData(adapterId: string): Promise<AdapterCacheEntry | undefined> {
+    return this.adapterCache.get(adapterId);
+  }
+
+  async setCachedAdapterData(entry: AdapterCacheEntry): Promise<void> {
+    this.adapterCache.set(entry.adapterId, entry);
   }
 }

@@ -5,8 +5,12 @@ import {
   fetchCurrentWeather,
   loadWeatherConfig,
   saveWeatherConfig,
+  weatherAdapterDefinition,
   type WeatherProvider,
 } from "../../adapters/weather";
+import { fetchWithCache } from "../../lib/adapterCache";
+import { db } from "../../lib/db";
+import { useOnlineStatus } from "../../lib/useOnlineStatus";
 
 interface WeatherModuleProps {
   networkState: NetworkState;
@@ -18,16 +22,42 @@ export function WeatherModule({ networkState }: WeatherModuleProps) {
   const [apiKeyDraft, setApiKeyDraft] = useState("");
   const [cityDraft, setCityDraft] = useState("");
   const [payload, setPayload] = useState<DataPayload | null>(null);
+  const [stale, setStale] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const online = useOnlineStatus();
 
   const canUseNetwork = networkState !== "local";
 
-  const refresh = useCallback(async () => {
+  const loadFromCache = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      setPayload(await fetchCurrentWeather());
+      const result = await fetchWithCache(weatherAdapterDefinition, fetchCurrentWeather, (revalidated) => {
+        setPayload(revalidated);
+        setStale(false);
+      });
+      setPayload(result.payload);
+      setStale(result.isStale);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load weather.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const forceRefresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const fresh = await fetchCurrentWeather();
+      await db.setCachedAdapterData({
+        adapterId: weatherAdapterDefinition.id,
+        payload: fresh,
+        cachedAt: Date.now(),
+      });
+      setPayload(fresh);
+      setStale(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load weather.");
     } finally {
@@ -36,8 +66,8 @@ export function WeatherModule({ networkState }: WeatherModuleProps) {
   }, []);
 
   useEffect(() => {
-    if (config && canUseNetwork) refresh();
-  }, [config, canUseNetwork, refresh]);
+    if (config && canUseNetwork) loadFromCache();
+  }, [config, canUseNetwork, loadFromCache]);
 
   const handleConnect = useCallback(
     (event: FormEvent) => {
@@ -97,7 +127,7 @@ export function WeatherModule({ networkState }: WeatherModuleProps) {
       <div className="module-header">
         <h3>Weather in {config.city}</h3>
         <div className="entry-actions">
-          <button type="button" onClick={refresh} disabled={loading}>
+          <button type="button" onClick={forceRefresh} disabled={loading}>
             {loading ? "Refreshing…" : "Refresh"}
           </button>
           <button
@@ -112,11 +142,19 @@ export function WeatherModule({ networkState }: WeatherModuleProps) {
           </button>
         </div>
       </div>
+      {!online && (
+        <p className="offline-banner">
+          You're offline — showing cached data{payload ? ` from ${new Date(payload._cachedAt).toLocaleString()}` : ""}.
+        </p>
+      )}
       {error && <p className="import-error">{error}</p>}
       {row && (
         <p className="weather-summary">
           {String(row.temperature_c)}°C, {String(row.condition)} (humidity {String(row.humidity)}%) —{" "}
-          <span className="weather-source">via {config.provider}</span>
+          <span className="weather-source">
+            via {config.provider}
+            {stale && !online ? " (cached, revalidating…)" : ""}
+          </span>
         </p>
       )}
     </div>

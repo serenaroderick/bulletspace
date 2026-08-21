@@ -1,4 +1,11 @@
+import type { DataPayload } from "../modules.js";
 import type { CanvasElement, Entry, Journal } from "../types.js";
+
+export interface AdapterCacheEntry {
+  adapterId: string;
+  payload: DataPayload;
+  cachedAt: number;
+}
 
 export interface DatabaseAdapter {
   init(): Promise<void>;
@@ -19,4 +26,7 @@ export interface DatabaseAdapter {
   listCanvasElementsByEntry(entryId: string): Promise<CanvasElement[]>;
   updateCanvasElement(id: string, patch: Partial<CanvasElement>): Promise<void>;
   deleteCanvasElement(id: string): Promise<void>;
+
+  getCachedAdapterData(adapterId: string): Promise<AdapterCacheEntry | undefined>;
+  setCachedAdapterData(entry: AdapterCacheEntry): Promise<void>;
 }
