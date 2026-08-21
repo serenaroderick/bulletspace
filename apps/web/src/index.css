@@ -11,4 +11,8 @@ body {
   margin: 0;
   background: radial-gradient(circle, #8884 1px, transparent 1px);
   background-size: 20px 20px;
+  /* Inherited by everything -- a single long unbroken token (long title,
+     URL, no-space paste) must wrap inside its container instead of
+     blowing out the page width. */
+  overflow-wrap: anywhere;
 }

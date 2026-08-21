@@ -57,14 +57,16 @@ export default function App() {
       if (!journal || !draftTitle.trim()) return;
 
       const now = Date.now();
-      const parsedMood = draftMood.trim() === "" ? null : Number(draftMood);
+      const rawMood = draftMood.trim() === "" ? null : Number(draftMood);
+      const clampedMood =
+        rawMood !== null && Number.isFinite(rawMood) ? Math.min(10, Math.max(1, Math.round(rawMood))) : null;
       const entry: Entry = {
         id: newId(),
         journalId: journal.id,
         title: draftTitle.trim(),
         content: draftContent,
         canvasConfig: { gridType: "dot", zoom: 1, scrollX: 0, scrollY: 0 },
-        mood: Number.isFinite(parsedMood) ? parsedMood : null,
+        mood: clampedMood,
         energy: null,
         focus: null,
         tags: [],
@@ -82,8 +84,9 @@ export default function App() {
   );
 
   const handleDeleteEntry = useCallback(
-    async (id: string) => {
+    async (id: string, title: string) => {
       if (!journal) return;
+      if (!window.confirm(`Delete "${title}"? This can't be undone.`)) return;
       await db.deleteEntry(id);
       await loadEntries(journal.id);
     },
@@ -230,6 +233,8 @@ export default function App() {
             type="file"
             accept="application/json"
             className="visually-hidden"
+            tabIndex={-1}
+            aria-hidden="true"
             onChange={handleImportFileChange}
           />
           <NetworkToggle state={networkState} onChange={handleNetworkStateChange} />
@@ -264,8 +269,6 @@ export default function App() {
             placeholder="Mood (1-10, optional)"
             aria-label="Entry mood"
             type="number"
-            min={1}
-            max={10}
           />
           <button type="submit">Add entry</button>
         </form>
@@ -284,7 +287,7 @@ export default function App() {
                 <button type="button" onClick={() => setOpenEntryId(entry.id)}>
                   Open canvas
                 </button>
-                <button type="button" onClick={() => handleDeleteEntry(entry.id)}>
+                <button type="button" onClick={() => handleDeleteEntry(entry.id, entry.title)}>
                   Delete
                 </button>
               </div>

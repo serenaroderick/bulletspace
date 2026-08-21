@@ -42,4 +42,26 @@ describe("serializeJournalExport / parseJournalExport", () => {
       "Not a valid BulletSpace export file.",
     );
   });
+
+  it("rejects an entry missing required fields", () => {
+    const malformed = {
+      version: 1,
+      journal,
+      entries: [{ id: "e1", title: "Missing everything else" }],
+    };
+    expect(() => parseJournalExport(JSON.stringify(malformed))).toThrow(
+      "Entry at index 0 is missing required fields or has the wrong shape.",
+    );
+  });
+
+  it("rejects an entry with a malformed canvasConfig", () => {
+    const malformed = {
+      version: 1,
+      journal,
+      entries: [{ ...entries[0], canvasConfig: { gridType: "dot" } }],
+    };
+    expect(() => parseJournalExport(JSON.stringify(malformed))).toThrow(
+      "Entry at index 0 is missing required fields or has the wrong shape.",
+    );
+  });
 });

@@ -79,8 +79,20 @@ network call end to end, verified live against the real API.
 
 **Goal:** stability and feedback.
 
-- [ ] Bug fixes
-- [ ] UX improvements based on daily use
+- [x] Bug fixes — first pass done via a self-directed code + live-browser
+      audit (before any real daily-use feedback came in): fixed silent data
+      loss (closing an entry or clicking a wikilink mid-edit discarded
+      changes with no warning — now confirms, and also warns on tab
+      close/refresh), no delete confirmation, mood value not clamped to
+      1-10 (and the native HTML `min`/`max` on that field was silently
+      **blocking form submission entirely** on out-of-range input — worse
+      than the bug it was meant to prevent), a horizontal-overflow bug
+      (single long unbroken strings didn't wrap) and a related one
+      (`MoodLineChart`'s SVG had a fixed pixel width that didn't shrink on
+      mobile), and an unvalidated import path that could crash on
+      malformed JSON. Keyboard navigation/focus order/accessibility
+      audited and found already solid, no changes needed there.
+- [ ] UX improvements based on daily use — pending actual usage
 - [ ] Community testing (friends, early adopters)
 
 ## Phase 2: Query Engine (8-10 weeks)

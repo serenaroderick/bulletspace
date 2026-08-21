@@ -1,5 +1,5 @@
 import type { Entry } from "@bulletspace/core";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { findBacklinks } from "../lib/wikilinks";
 import { MarkdownView } from "./MarkdownView";
 
@@ -22,11 +22,34 @@ export function EntryView({ entry, allEntries, onBack, onSave, onNavigate }: Ent
   );
 
   const dirty = title !== entry.title || content !== entry.content;
+  const canSave = dirty && title.trim().length > 0;
+
+  useEffect(() => {
+    if (!dirty) return;
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [dirty]);
+
+  const confirmDiscardIfDirty = (): boolean => {
+    if (!dirty) return true;
+    return window.confirm("You have unsaved changes. Discard them?");
+  };
+
+  const handleBack = () => {
+    if (confirmDiscardIfDirty()) onBack();
+  };
+
+  const handleNavigate = (targetTitle: string) => {
+    if (confirmDiscardIfDirty()) onNavigate(targetTitle);
+  };
 
   return (
     <div className="entry-view">
       <div className="entry-view-toolbar">
-        <button type="button" onClick={onBack}>
+        <button type="button" onClick={handleBack}>
           ← Back
         </button>
         <div className="mode-switch">
@@ -45,7 +68,7 @@ export function EntryView({ entry, allEntries, onBack, onSave, onNavigate }: Ent
             Preview
           </button>
         </div>
-        <button type="button" disabled={!dirty} onClick={() => onSave({ title, content })}>
+        <button type="button" disabled={!canSave} onClick={() => onSave({ title: title.trim(), content })}>
           Save
         </button>
       </div>
@@ -67,7 +90,7 @@ export function EntryView({ entry, allEntries, onBack, onSave, onNavigate }: Ent
         />
       ) : (
         <div className="entry-view-preview">
-          <MarkdownView content={content} onNavigate={onNavigate} />
+          <MarkdownView content={content} onNavigate={handleNavigate} />
         </div>
       )}
 
@@ -79,7 +102,7 @@ export function EntryView({ entry, allEntries, onBack, onSave, onNavigate }: Ent
           <ul>
             {backlinks.map((backlink) => (
               <li key={backlink.id}>
-                <button type="button" onClick={() => onNavigate(backlink.title)}>
+                <button type="button" onClick={() => handleNavigate(backlink.title)}>
                   {backlink.title}
                 </button>
               </li>

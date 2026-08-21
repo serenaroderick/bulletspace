@@ -39,7 +39,12 @@ export function MoodLineChart({ entries }: MoodLineChartProps) {
   return (
     <div className="module">
       <h3>Mood over time</h3>
-      <svg width={WIDTH} height={HEIGHT} role="img" aria-label="Mood over time line chart">
+      <svg
+        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+        style={{ width: "100%", maxWidth: WIDTH, height: "auto", display: "block" }}
+        role="img"
+        aria-label="Mood over time line chart"
+      >
         <polyline
           points={coords.map((point) => `${point.x},${point.y}`).join(" ")}
           fill="none"
