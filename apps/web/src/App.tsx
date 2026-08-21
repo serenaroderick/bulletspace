@@ -3,14 +3,17 @@ import { type ChangeEvent, type FormEvent, useCallback, useEffect, useRef, useSt
 import "./App.css";
 import { EntryCanvas } from "./components/EntryCanvas";
 import { EntryView } from "./components/EntryView";
+import { EnergyFocusChart } from "./components/modules/EnergyFocusChart";
 import { HabitStreakModule } from "./components/modules/HabitStreakModule";
 import { MoodLineChart } from "./components/modules/MoodLineChart";
 import { MoodVsWeatherModule } from "./components/modules/MoodVsWeatherModule";
+import { TagFrequencyModule } from "./components/modules/TagFrequencyModule";
 import { WeatherModule } from "./components/modules/WeatherModule";
 import { NetworkToggle } from "./components/NetworkToggle";
 import { db, ensureDbInitialized } from "./lib/db";
 import { gatekeeper } from "./lib/gatekeeper";
 import { parseJournalExport, serializeJournalExport } from "./lib/importExport";
+import { clampRating, parseTags } from "./lib/rating";
 
 function newId(): string {
   return crypto.randomUUID();
@@ -24,6 +27,9 @@ export default function App() {
   const [draftTitle, setDraftTitle] = useState("");
   const [draftContent, setDraftContent] = useState("");
   const [draftMood, setDraftMood] = useState("");
+  const [draftEnergy, setDraftEnergy] = useState("");
+  const [draftFocus, setDraftFocus] = useState("");
+  const [draftTags, setDraftTags] = useState("");
   const [openEntryId, setOpenEntryId] = useState<string | null>(null);
   const [viewEntryId, setViewEntryId] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
@@ -58,19 +64,16 @@ export default function App() {
       if (!journal || !draftTitle.trim()) return;
 
       const now = Date.now();
-      const rawMood = draftMood.trim() === "" ? null : Number(draftMood);
-      const clampedMood =
-        rawMood !== null && Number.isFinite(rawMood) ? Math.min(10, Math.max(1, Math.round(rawMood))) : null;
       const entry: Entry = {
         id: newId(),
         journalId: journal.id,
         title: draftTitle.trim(),
         content: draftContent,
         canvasConfig: { gridType: "dot", zoom: 1, scrollX: 0, scrollY: 0 },
-        mood: clampedMood,
-        energy: null,
-        focus: null,
-        tags: [],
+        mood: clampRating(draftMood),
+        energy: clampRating(draftEnergy),
+        focus: clampRating(draftFocus),
+        tags: parseTags(draftTags),
         createdAt: now,
         updatedAt: now,
       };
@@ -79,9 +82,12 @@ export default function App() {
       setDraftTitle("");
       setDraftContent("");
       setDraftMood("");
+      setDraftEnergy("");
+      setDraftFocus("");
+      setDraftTags("");
       await loadEntries(journal.id);
     },
-    [journal, draftTitle, draftContent, draftMood, loadEntries],
+    [journal, draftTitle, draftContent, draftMood, draftEnergy, draftFocus, draftTags, loadEntries],
   );
 
   const handleDeleteEntry = useCallback(
@@ -247,6 +253,8 @@ export default function App() {
         <div className="dashboard">
           <HabitStreakModule entries={entries} />
           <MoodLineChart entries={entries} />
+          <EnergyFocusChart entries={entries} />
+          <TagFrequencyModule entries={entries} />
           <MoodVsWeatherModule entries={entries} />
           <WeatherModule networkState={networkState} />
         </div>
@@ -265,12 +273,34 @@ export default function App() {
             rows={4}
             aria-label="Entry content"
           />
+          <div className="rating-inputs">
+            <input
+              value={draftMood}
+              onChange={(event) => setDraftMood(event.target.value)}
+              placeholder="Mood (1-10)"
+              aria-label="Entry mood"
+              type="number"
+            />
+            <input
+              value={draftEnergy}
+              onChange={(event) => setDraftEnergy(event.target.value)}
+              placeholder="Energy (1-10)"
+              aria-label="Entry energy"
+              type="number"
+            />
+            <input
+              value={draftFocus}
+              onChange={(event) => setDraftFocus(event.target.value)}
+              placeholder="Focus (1-10)"
+              aria-label="Entry focus"
+              type="number"
+            />
+          </div>
           <input
-            value={draftMood}
-            onChange={(event) => setDraftMood(event.target.value)}
-            placeholder="Mood (1-10, optional)"
-            aria-label="Entry mood"
-            type="number"
+            value={draftTags}
+            onChange={(event) => setDraftTags(event.target.value)}
+            placeholder="Tags, comma-separated (optional)"
+            aria-label="Entry tags"
           />
           <button type="submit">Add entry</button>
         </form>

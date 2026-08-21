@@ -1,8 +1,16 @@
-import { type Entry, type ModuleDefinition, runQueryPipeline } from "@bulletspace/core";
+import { type DataPayload, type Entry, type ModuleDefinition, type ModuleOutput, runQueryPipeline } from "@bulletspace/core";
 import { useCallback, useEffect, useState } from "react";
 import { entriesToDataPayload, journalAdapterDefinition } from "../../adapters/journal";
 import { weatherAdapterDefinition } from "../../adapters/weather";
 import { getCachedPayload } from "../../lib/adapterCache";
+import { ModuleOutputRenderer } from "../ModuleOutputRenderer";
+
+const CHART_OUTPUT: ModuleOutput = {
+  type: "chart",
+  config: { chartType: "scatter", x: "weather.temperature_c", y: "mood.rating" },
+};
+
+const TABLE_OUTPUT: ModuleOutput = { type: "table", config: {} };
 
 const MODULE_DEF: ModuleDefinition = {
   id: "mood-vs-weather",
@@ -15,7 +23,7 @@ const MODULE_DEF: ModuleDefinition = {
   ],
   joinOn: "date",
   transformations: [{ kind: "sort", field: "date", direction: "asc" }],
-  output: { type: "table", config: {} },
+  output: CHART_OUTPUT,
 };
 
 interface MoodVsWeatherModuleProps {
@@ -23,12 +31,13 @@ interface MoodVsWeatherModuleProps {
 }
 
 export function MoodVsWeatherModule({ entries }: MoodVsWeatherModuleProps) {
-  const [rows, setRows] = useState<Record<string, unknown>[] | null>(null);
+  const [payload, setPayload] = useState<DataPayload | null>(null);
+  const [view, setView] = useState<"chart" | "table">("chart");
 
   const load = useCallback(async () => {
     const weatherPayload = await getCachedPayload(weatherAdapterDefinition.id);
     if (!weatherPayload) {
-      setRows(null);
+      setPayload(null);
       return;
     }
 
@@ -37,7 +46,7 @@ export function MoodVsWeatherModule({ entries }: MoodVsWeatherModuleProps) {
       { alias: "mood", payload: moodPayload },
       { alias: "weather", payload: weatherPayload },
     ]);
-    setRows(result.rows);
+    setPayload(result);
   }, [entries]);
 
   useEffect(() => {
@@ -48,37 +57,38 @@ export function MoodVsWeatherModule({ entries }: MoodVsWeatherModuleProps) {
     <div className="module">
       <div className="module-header">
         <h3>Mood vs. Weather</h3>
-        <button type="button" onClick={load}>
-          Refresh
-        </button>
+        <div className="entry-actions">
+          <div className="mode-switch">
+            <button
+              type="button"
+              className={view === "chart" ? "active" : ""}
+              onClick={() => setView("chart")}
+            >
+              Chart
+            </button>
+            <button
+              type="button"
+              className={view === "table" ? "active" : ""}
+              onClick={() => setView("table")}
+            >
+              Table
+            </button>
+          </div>
+          <button type="button" onClick={load}>
+            Refresh
+          </button>
+        </div>
       </div>
-      {rows === null && (
+      {payload === null && (
         <p className="empty">Connect the Weather module below to see this correlation.</p>
       )}
-      {rows !== null && rows.length === 0 && (
+      {payload !== null && payload.rows.length === 0 && (
         <p className="empty">
           No overlapping days yet between journal entries and cached weather data.
         </p>
       )}
-      {rows !== null && rows.length > 0 && (
-        <table className="merge-table">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Mood</th>
-              <th>Temp (°C)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={String(row.date)}>
-                <td>{String(row.date)}</td>
-                <td>{String(row["mood.rating"])}</td>
-                <td>{String(row["weather.temperature_c"])}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {payload !== null && payload.rows.length > 0 && (
+        <ModuleOutputRenderer output={view === "chart" ? CHART_OUTPUT : TABLE_OUTPUT} payload={payload} />
       )}
     </div>
   );

@@ -138,15 +138,50 @@ sort/group → output) replacing the separate "Reactive Data Engine" and
       against the cached weather payload on `date`. Verified live: created
       a mood-8 entry, connected weather, got a real correlated row
       (`2026-08-21, mood 8, 14°C`) with zero console errors.
-- [ ] Charts (bar, scatter) beyond the existing hardcoded line chart
-- [ ] Reactive tables (Airtable-like), built on the same pipeline
-- [ ] More hardcoded modules (workout log, sleep log, etc.)
+- [x] Charts (bar, scatter) — reusable SVG components
+      ([`BarChart.tsx`](apps/web/src/components/charts/BarChart.tsx),
+      [`ScatterChart.tsx`](apps/web/src/components/charts/ScatterChart.tsx)),
+      hand-rolled rather than pulling in Chart.js — keeps bundle size down
+      and matches the pattern the Phase 1 line chart already established.
+      Chart.js remains a reasonable swap-in later if richer chart types are
+      needed. Both driven by a generic `ModuleOutputRenderer` that
+      dispatches on `ModuleOutput.type`/`config.chartType`, so a
+      `ModuleDefinition`'s declared output actually determines what
+      renders — not a per-module hardcoded choice.
+- [x] Reactive tables (Airtable-like) — the same `ModuleOutputRenderer`'s
+      table branch. "Reactive" specifically means: clicking a column header
+      re-sorts using the query engine's own `applyTransformation` sort
+      transformation, not a bespoke client-side sort, so the displayed
+      order is always something the pipeline itself could produce. No
+      inline cell editing yet — everything rendered this way is
+      adapter/computed data, not raw user-owned rows, so there's nothing
+      to edit in place yet.
+- [x] Mood vs. Weather gained a Chart/Table toggle rendering the *same*
+      merged payload through both `ModuleOutputRenderer` branches —
+      verified live: scatter view showed a point, switching to table
+      showed all 7 fields (`date`, `mood.rating`, `mood.energy`,
+      `mood.focus`, `weather.temperature_c`, `weather.condition`,
+      `weather.humidity`) with working sortable headers (▲/▼ toggle
+      confirmed), switching back to chart still worked, zero console
+      errors.
+- [x] More hardcoded modules — substituted **workout log / sleep log**
+      for **Energy/Focus chart** and **Tag Frequency**: `Entry` has no
+      dedicated workout/sleep fields, and inventing them ad hoc would be
+      exactly the kind of schema hack the module/adapter system exists to
+      avoid needing later. Energy/Focus reuses fields already on `Entry`
+      (parallel to the Phase 1 mood chart); Tag Frequency is a bar chart
+      of tag usage built on the new `BarChart` component. Neither had a
+      way to produce real data before this pass — the entry form only had
+      title/content/mood — so energy/focus/tags inputs were added to the
+      create form too (`clampRating`/`parseTags` helpers, tested).
 
 Grows the template count without building a Template Library *system* yet.
 
 **Success criteria:** 10+ hardcoded modules you actually use daily,
 including at least one `merge` module (e.g. mood vs. weather) — **done**
-for the merge module; still short of 10 total modules.
+for the merge module. Dashboard is at 6 modules now (habit streak, mood
+chart, energy/focus chart, tag frequency, mood-vs-weather merge, weather),
+still short of 10 total.
 
 ## Phase 3: Desktop Port (4-6 weeks)
 
