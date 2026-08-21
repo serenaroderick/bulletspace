@@ -1,0 +1,105 @@
+.app {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.app-header h1 {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.network-toggle {
+  display: flex;
+  gap: 0.25rem;
+  border: 1px solid #8885;
+  border-radius: 8px;
+  padding: 0.25rem;
+}
+
+.network-toggle button {
+  border: none;
+  background: none;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.network-toggle button.active {
+  background: #8883;
+}
+
+.entry-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+}
+
+.entry-form input,
+.entry-form textarea {
+  font: inherit;
+  padding: 0.5rem;
+  border: 1px solid #8885;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+}
+
+.entry-form button {
+  align-self: flex-start;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid #8885;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+}
+
+.entry-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.entry {
+  border: 1px solid #8885;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+}
+
+.entry-title {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.entry-content {
+  white-space: pre-wrap;
+  font-family: inherit;
+  margin: 0 0 0.5rem;
+  color: #8888;
+}
+
+.entry .empty,
+.empty {
+  color: #8888;
+  list-style: none;
+}
+
+.loading {
+  padding: 2rem;
+  text-align: center;
+}
