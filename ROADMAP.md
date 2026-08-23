@@ -187,10 +187,38 @@ still short of 10 total.
 
 **Goal:** native performance and file system access.
 
-- [ ] Tauri setup
-- [ ] File system adapter (replaces IndexedDB)
+- [x] Tauri setup — `apps/desktop` wraps the existing `apps/web` frontend
+      unmodified (`devUrl`/`frontendDist` point at it, nothing duplicated).
+      Verified live: real native window, dev mode hot-reloads correctly.
+- [x] File system adapter (replaces IndexedDB) — `FileSystemAdapter` in
+      `apps/web/src/lib/fileSystemAdapter.ts`, backed by
+      `@tauri-apps/plugin-store` (a single JSON file, collections emulated
+      via key prefixes, same shape `IndexedDBAdapter` exposes).
+      `lib/db.ts` picks the adapter at runtime via a `window.__TAURI_INTERNALS__`
+      check — zero call-site changes needed anywhere else in the app.
+      Verified live by reading the actual file on disk
+      (`~/Library/Application Support/space.bulletspace.app/bulletspace.json`
+      on macOS — Tauri's standard app-data location, not
+      `~/Documents/BulletSpace/` as originally guessed; Application Support
+      is the OS-conventional place for app-managed data a user isn't meant
+      to browse directly) — a real journal entry was sitting in it exactly
+      as created through the UI.
+- [x] **Bug found via that live inspection, not code review**: React 18
+      StrictMode's dev-mode double-invoke fired the "find or create the
+      default journal" effect twice before either write landed, racing two
+      empty `listJournals()` reads into two `createJournal()` calls —
+      confirmed by two "My Journal" rows with identical timestamps sitting
+      in the real file. This bug has existed since Phase 1; IndexedDB's
+      opaque storage just never surfaced it as directly. Fixed by
+      memoizing the whole find-or-create sequence behind a single shared
+      promise (`lib/journal.ts`), so concurrent callers all await the same
+      in-flight result instead of each racing their own check. 3 new
+      tests, including one that fires two concurrent calls the way
+      StrictMode does and asserts only one journal gets created.
 - [ ] Native menus and shortcuts
-- [ ] Build for Windows/macOS/Linux
+- [ ] Build for Windows/macOS/Linux — realistically this environment can
+      only build and verify macOS/arm64; Windows/Linux need either those
+      OSes or a cross-compilation setup, not attempted yet
 - [ ] Google Calendar adapter (`authType: 'oauth_loopback'`) — only viable
       here, not on web, since it needs a local loopback listener for the
       redirect
@@ -201,8 +229,9 @@ still short of 10 total.
       request isn't subject to CORS at all, so this fixes both adapters at
       once without needing the Phase 5 backend
 
-**Success criteria:** desktop app runs, saves to `~/Documents/BulletSpace/`.
-GitHub and Google Calendar adapters both go live here, backend-free.
+**Success criteria:** desktop app runs, saves locally via the OS-standard
+app-data directory — **done** on macOS. GitHub and Google Calendar adapters
+both going live here, backend-free, is still pending.
 
 ## Phase 4: Manual Sharing (4-6 weeks)
 

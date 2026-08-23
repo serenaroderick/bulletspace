@@ -13,6 +13,7 @@ import { NetworkToggle } from "./components/NetworkToggle";
 import { db, ensureDbInitialized } from "./lib/db";
 import { gatekeeper } from "./lib/gatekeeper";
 import { parseJournalExport, serializeJournalExport } from "./lib/importExport";
+import { ensureDefaultJournal } from "./lib/journal";
 import { clampRating, parseTags } from "./lib/rating";
 
 function newId(): string {
@@ -43,15 +44,7 @@ export default function App() {
   useEffect(() => {
     (async () => {
       await ensureDbInitialized();
-
-      const journals = await db.listJournals();
-      let active = journals[0];
-      if (!active) {
-        const now = Date.now();
-        active = { id: newId(), title: "My Journal", icon: null, createdAt: now, updatedAt: now };
-        await db.createJournal(active);
-      }
-
+      const active = await ensureDefaultJournal(db);
       setJournal(active);
       await loadEntries(active.id);
       setReady(true);

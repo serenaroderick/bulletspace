@@ -1,6 +1,11 @@
-import { IndexedDBAdapter } from "@bulletspace/core";
+import { type DatabaseAdapter, IndexedDBAdapter } from "@bulletspace/core";
+import { FileSystemAdapter } from "./fileSystemAdapter";
 
-export const db = new IndexedDBAdapter();
+function isTauri(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+export const db: DatabaseAdapter = isTauri() ? new FileSystemAdapter() : new IndexedDBAdapter();
 
 let initPromise: Promise<void> | null = null;
 
