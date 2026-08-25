@@ -6,6 +6,24 @@
   "permissions": [
     "core:default",
     "opener:default",
-    "store:default"
+    "store:default",
+    "dialog:default",
+    "fs:default",
+    "fs:allow-write-text-file",
+    "fs:allow-read-text-file",
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://github.com/*" },
+        { "url": "https://api.github.com/*" },
+        { "url": "https://api.openweathermap.org/*" },
+        { "url": "https://api.weatherstack.com/*" },
+        { "url": "https://accounts.spotify.com/*" },
+        { "url": "https://api.spotify.com/*" },
+        { "url": "https://accounts.google.com/*" },
+        { "url": "https://oauth2.googleapis.com/*" },
+        { "url": "https://www.googleapis.com/*" }
+      ]
+    }
   ]
 }

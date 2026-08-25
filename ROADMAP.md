@@ -215,23 +215,76 @@ still short of 10 total.
       in-flight result instead of each racing their own check. 3 new
       tests, including one that fires two concurrent calls the way
       StrictMode does and asserts only one journal gets created.
-- [ ] Native menus and shortcuts
+- [x] Route adapter network calls through Tauri's Rust-side HTTP client
+      (`tauri-plugin-http` + `@tauri-apps/plugin-http`) instead of the
+      webview's `fetch()`. `NetworkGatekeeper` now takes an injectable
+      fetch implementation (defaults to the global `fetch`, looked up
+      lazily per call so runtime monkey-patching — real usage or test
+      stubs — still works); the desktop build injects Tauri's fetch.
+      HTTP permission scope is explicitly allowlisted per domain in
+      `capabilities/default.json` (GitHub, weather providers, Spotify,
+      Google) rather than a wildcard — matches the app's own
+      privacy-first, least-privilege ethos.
+      **Verified live and it unblocked the GitHub adapter exactly as
+      predicted**: the CORS error is gone (confirmed — the request now
+      reaches GitHub and gets a real HTTP response, not a browser-level
+      rejection). What surfaced instead was `device_flow_disabled` —
+      unrelated to this fix, just the "Enable Device Flow" checkbox on
+      the GitHub OAuth App not being (or no longer being) checked.
+      GithubModule is now shown only when `isTauri()` — still genuinely
+      broken on web, so it stays hidden there.
+- [x] Native menus and shortcuts — File menu (New Entry/Export JSON/Import
+      JSON with Cmd/Ctrl+N/E/I), standard macOS Edit menu (cut/copy/paste/
+      undo/redo/select-all — needed for those to work correctly in custom
+      text areas), and the standard app menu (About/Hide/Quit). Rust emits
+      named events on menu/accelerator activation; the frontend listens
+      via `@tauri-apps/api/event` only when `isTauri()`. Verified live,
+      including catching two real bugs along the way:
+      - Testing confusion from a **stale release build** running
+        alongside a fresh dev instance — clicking a menu item worked
+        (fresh instance) while the keyboard shortcut appeared not to
+        (actually landed on the stale instance). Not a code bug; resolved
+        by killing all instances and testing against exactly one. Worth
+        remembering: always confirm you're testing against the process
+        you think you are before concluding something's broken.
+      - **A real bug**: Export used the browser `<a download>` + blob-URL
+        trick, which doesn't reliably produce a save dialog inside
+        Tauri's webview (WKWebView) — confirmed live, the click did
+        nothing visible. Fixed with the proper native equivalent
+        (`tauri-plugin-dialog`'s save picker + `tauri-plugin-fs`'s
+        `writeTextFile`) on desktop, while web keeps the original
+        browser-native approach unchanged (still verified working, no
+        regression). `apps/web/src/lib/exportFile.ts` picks the right
+        path per platform.
+- [x] Google Calendar adapter (`authType: 'oauth_loopback'`) — **verified
+      live end to end**: connect → browser opens Google's consent screen →
+      grant access → redirects back → real calendar events render in the
+      module. This is the one adapter that needed genuinely new native
+      capability, not just routing: a generic `oauth_loopback_flow` Tauri
+      command (`apps/desktop/src-tauri/src/oauth_loopback.rs`) binds an
+      ephemeral localhost port, opens the system browser via the `open`
+      crate, waits (5 min timeout) for the single redirect, parses its
+      query string, and returns it — reusable by any future
+      `oauth_loopback` adapter, not Google-specific; all provider logic
+      (scopes, PKCE, token exchange, field mapping) stays in TypeScript,
+      same as every other adapter. This is also the first real use of the
+      PKCE helper built back in Phase 1 for Spotify, which never got used
+      there since that account needed Premium — nice to see it land
+      somewhere.
+      Two setup-only snags hit along the way, neither a code problem:
+      Google's `access_denied` (OAuth consent screen in "Testing" mode
+      requires explicitly adding your own account under Test Users) and
+      the browser needing to actually complete sign-in before the
+      loopback listener receives anything.
 - [ ] Build for Windows/macOS/Linux — realistically this environment can
       only build and verify macOS/arm64; Windows/Linux need either those
-      OSes or a cross-compilation setup, not attempted yet
-- [ ] Google Calendar adapter (`authType: 'oauth_loopback'`) — only viable
-      here, not on web, since it needs a local loopback listener for the
-      redirect
-- [ ] Route adapter network calls through Tauri's Rust-side HTTP client
-      instead of the webview's `fetch()` — this is also what unblocks the
-      GitHub `device_flow` adapter (code already written in Phase 1, blocked
-      purely by browser CORS, not by needing a secret): a native HTTP
-      request isn't subject to CORS at all, so this fixes both adapters at
-      once without needing the Phase 5 backend
+      OSes or a cross-compilation setup, not attempted here
 
 **Success criteria:** desktop app runs, saves locally via the OS-standard
-app-data directory — **done** on macOS. GitHub and Google Calendar adapters
-both going live here, backend-free, is still pending.
+app-data directory — **done** on macOS. GitHub adapter going live here,
+backend-free — **done**, pending only the Device Flow checkbox on the
+GitHub App itself (a one-time setup step, not a code gap). Google Calendar
+adapter going live here, backend-free — **done**, fully verified live.
 
 ## Phase 4: Manual Sharing (4-6 weeks)
 

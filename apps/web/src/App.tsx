@@ -4,6 +4,8 @@ import "./App.css";
 import { EntryCanvas } from "./components/EntryCanvas";
 import { EntryView } from "./components/EntryView";
 import { EnergyFocusChart } from "./components/modules/EnergyFocusChart";
+import { GithubModule } from "./components/modules/GithubModule";
+import { GoogleCalendarModule } from "./components/modules/GoogleCalendarModule";
 import { HabitStreakModule } from "./components/modules/HabitStreakModule";
 import { MoodLineChart } from "./components/modules/MoodLineChart";
 import { MoodVsWeatherModule } from "./components/modules/MoodVsWeatherModule";
@@ -11,9 +13,11 @@ import { TagFrequencyModule } from "./components/modules/TagFrequencyModule";
 import { WeatherModule } from "./components/modules/WeatherModule";
 import { NetworkToggle } from "./components/NetworkToggle";
 import { db, ensureDbInitialized } from "./lib/db";
+import { exportJournal } from "./lib/exportFile";
 import { gatekeeper } from "./lib/gatekeeper";
-import { parseJournalExport, serializeJournalExport } from "./lib/importExport";
+import { parseJournalExport } from "./lib/importExport";
 import { ensureDefaultJournal } from "./lib/journal";
+import { isTauri } from "./lib/platform";
 import { clampRating, parseTags } from "./lib/rating";
 
 function newId(): string {
@@ -35,6 +39,7 @@ export default function App() {
   const [viewEntryId, setViewEntryId] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
   const loadEntries = useCallback(async (journalId: string) => {
     const loaded = await db.listEntriesByJournal(journalId);
@@ -145,18 +150,31 @@ export default function App() {
     [entries, journal],
   );
 
-  const handleExport = useCallback(() => {
+  const handleExport = useCallback(async () => {
     if (!journal) return;
-    const blob = new Blob([JSON.stringify(serializeJournalExport(journal, entries), null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${journal.title.replace(/\s+/g, "-").toLowerCase()}-export.json`;
-    link.click();
-    URL.revokeObjectURL(url);
+    await exportJournal(journal, entries);
   }, [journal, entries]);
+
+  // Native menu items (File > New Entry / Export / Import) emit these same
+  // event names from the Rust side -- see apps/desktop/src-tauri/src/lib.rs.
+  // Only relevant on desktop; a plain browser tab never receives them.
+  useEffect(() => {
+    if (!isTauri()) return;
+
+    let unlistenFns: Array<() => void> = [];
+    (async () => {
+      const { listen } = await import("@tauri-apps/api/event");
+      unlistenFns = await Promise.all([
+        listen("new_entry", () => titleInputRef.current?.focus()),
+        listen("export_json", () => handleExport()),
+        listen("import_json", () => importInputRef.current?.click()),
+      ]);
+    })();
+
+    return () => {
+      for (const unlisten of unlistenFns) unlisten();
+    };
+  }, [handleExport]);
 
   const handleImportFileChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -250,10 +268,13 @@ export default function App() {
           <TagFrequencyModule entries={entries} />
           <MoodVsWeatherModule entries={entries} />
           <WeatherModule networkState={networkState} />
+          {isTauri() && <GithubModule networkState={networkState} />}
+          {isTauri() && <GoogleCalendarModule networkState={networkState} />}
         </div>
 
         <form className="entry-form" onSubmit={handleCreateEntry}>
           <input
+            ref={titleInputRef}
             value={draftTitle}
             onChange={(event) => setDraftTitle(event.target.value)}
             placeholder="Entry title"

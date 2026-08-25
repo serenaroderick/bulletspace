@@ -53,4 +53,20 @@ describe("NetworkGatekeeper", () => {
     gatekeeper.clearLog();
     expect(gatekeeper.getLog()).toHaveLength(0);
   });
+
+  it("uses an injected fetch implementation instead of the global fetch when provided", async () => {
+    const calls: string[] = [];
+    const customFetch = async (url: string) => {
+      calls.push(url);
+      return new Response("from custom fetch");
+    };
+
+    const gatekeeper = new NetworkGatekeeper(customFetch);
+    gatekeeper.setState("ai");
+
+    const response = await gatekeeper.guardedFetch("https://desktop-only.example.com");
+
+    expect(calls).toEqual(["https://desktop-only.example.com"]);
+    expect(await response.text()).toBe("from custom fetch");
+  });
 });
