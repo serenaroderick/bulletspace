@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import type { ModuleDefinition } from "../modules.js";
 import type { CanvasElement, Entry, Journal } from "../types.js";
 import type { DatabaseAdapter } from "./adapter.js";
 import { IndexedDBAdapter } from "./indexedDbAdapter.js";
@@ -43,6 +44,19 @@ function makeCanvasElement(overrides: Partial<CanvasElement> = {}): CanvasElemen
     width: 200,
     height: 100,
     zIndex: 0,
+    ...overrides,
+  };
+}
+
+function makeModuleDefinition(overrides: Partial<ModuleDefinition> = {}): ModuleDefinition {
+  return {
+    id: "shared-module-1",
+    name: "Shared Module",
+    version: "1.0.0",
+    type: "single",
+    sources: [{ adapterId: "journal", alias: "mood" }],
+    transformations: [],
+    output: { type: "table", config: {} },
     ...overrides,
   };
 }
@@ -161,5 +175,18 @@ describe.each(adapters)("%s", (_name, createAdapter) => {
     await adapter.setCachedAdapterData(makeCacheEntry(1000));
     await adapter.setCachedAdapterData(makeCacheEntry(2000));
     expect((await adapter.getCachedAdapterData("weather-v1"))?.cachedAt).toBe(2000);
+  });
+
+  it("creates and lists imported module definitions", async () => {
+    await adapter.createModuleDefinition(makeModuleDefinition({ id: "m1" }));
+    await adapter.createModuleDefinition(makeModuleDefinition({ id: "m2", name: "Other" }));
+    const defs = await adapter.listModuleDefinitions();
+    expect(defs.map((d) => d.id).sort()).toEqual(["m1", "m2"]);
+  });
+
+  it("deletes an imported module definition", async () => {
+    await adapter.createModuleDefinition(makeModuleDefinition({ id: "m1" }));
+    await adapter.deleteModuleDefinition("m1");
+    expect(await adapter.listModuleDefinitions()).toHaveLength(0);
   });
 });

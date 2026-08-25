@@ -1,5 +1,6 @@
-import { type DataPayload, type Entry, type ModuleDefinition, type ModuleOutput, runQueryPipeline } from "@bulletspace/core";
+import { type DataPayload, type Entry, type ModuleDefinition, type ModuleOutput, runQueryPipeline, serializeModuleShare } from "@bulletspace/core";
 import { useCallback, useEffect, useState } from "react";
+import { listKnownAdapters } from "../../adapters/registry";
 import { entriesToDataPayload, journalAdapterDefinition } from "../../adapters/journal";
 import { weatherAdapterDefinition } from "../../adapters/weather";
 import { getCachedPayload } from "../../lib/adapterCache";
@@ -12,7 +13,7 @@ const CHART_OUTPUT: ModuleOutput = {
 
 const TABLE_OUTPUT: ModuleOutput = { type: "table", config: {} };
 
-const MODULE_DEF: ModuleDefinition = {
+export const MOOD_VS_WEATHER_MODULE_DEF: ModuleDefinition = {
   id: "mood-vs-weather",
   name: "Mood vs. Weather",
   version: "1.0.0",
@@ -26,6 +27,8 @@ const MODULE_DEF: ModuleDefinition = {
   output: CHART_OUTPUT,
 };
 
+const MODULE_DEF = MOOD_VS_WEATHER_MODULE_DEF;
+
 interface MoodVsWeatherModuleProps {
   entries: Entry[];
 }
@@ -33,6 +36,14 @@ interface MoodVsWeatherModuleProps {
 export function MoodVsWeatherModule({ entries }: MoodVsWeatherModuleProps) {
   const [payload, setPayload] = useState<DataPayload | null>(null);
   const [view, setView] = useState<"chart" | "table">("chart");
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = useCallback(async () => {
+    const share = serializeModuleShare(MODULE_DEF, listKnownAdapters());
+    await navigator.clipboard.writeText(JSON.stringify(share, null, 2));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, []);
 
   const load = useCallback(async () => {
     const weatherPayload = await getCachedPayload(weatherAdapterDefinition.id);
@@ -76,6 +87,9 @@ export function MoodVsWeatherModule({ entries }: MoodVsWeatherModuleProps) {
           </div>
           <button type="button" onClick={load}>
             Refresh
+          </button>
+          <button type="button" onClick={handleShare}>
+            {copied ? "Copied!" : "Share"}
           </button>
         </div>
       </div>

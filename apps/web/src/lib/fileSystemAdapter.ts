@@ -4,6 +4,7 @@ import type {
   DatabaseAdapter,
   Entry,
   Journal,
+  ModuleDefinition,
 } from "@bulletspace/core";
 import { load, type Store } from "@tauri-apps/plugin-store";
 
@@ -20,6 +21,9 @@ function canvasElementKey(id: string) {
 }
 function adapterCacheKey(adapterId: string) {
   return `adapterCache:${adapterId}`;
+}
+function moduleDefinitionKey(id: string) {
+  return `moduleDefinition:${id}`;
 }
 
 /**
@@ -116,5 +120,17 @@ export class FileSystemAdapter implements DatabaseAdapter {
 
   async setCachedAdapterData(entry: AdapterCacheEntry): Promise<void> {
     await this.connection.set(adapterCacheKey(entry.adapterId), entry);
+  }
+
+  async createModuleDefinition(moduleDef: ModuleDefinition): Promise<void> {
+    await this.connection.set(moduleDefinitionKey(moduleDef.id), moduleDef);
+  }
+
+  async listModuleDefinitions(): Promise<ModuleDefinition[]> {
+    return this.listByPrefix<ModuleDefinition>("moduleDefinition:");
+  }
+
+  async deleteModuleDefinition(id: string): Promise<void> {
+    await this.connection.delete(moduleDefinitionKey(id));
   }
 }

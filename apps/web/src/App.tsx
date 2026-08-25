@@ -1,4 +1,4 @@
-import type { CanvasConfig, Entry, Journal, NetworkState } from "@bulletspace/core";
+import type { CanvasConfig, Entry, Journal, ModuleDefinition, NetworkState } from "@bulletspace/core";
 import { type ChangeEvent, type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
 import { EntryCanvas } from "./components/EntryCanvas";
@@ -12,6 +12,7 @@ import { MoodVsWeatherModule } from "./components/modules/MoodVsWeatherModule";
 import { TagFrequencyModule } from "./components/modules/TagFrequencyModule";
 import { WeatherModule } from "./components/modules/WeatherModule";
 import { NetworkToggle } from "./components/NetworkToggle";
+import { SharedModulesPanel } from "./components/SharedModulesPanel";
 import { db, ensureDbInitialized } from "./lib/db";
 import { exportJournal } from "./lib/exportFile";
 import { gatekeeper } from "./lib/gatekeeper";
@@ -38,6 +39,7 @@ export default function App() {
   const [openEntryId, setOpenEntryId] = useState<string | null>(null);
   const [viewEntryId, setViewEntryId] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [sharedModules, setSharedModules] = useState<ModuleDefinition[]>([]);
   const importInputRef = useRef<HTMLInputElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
@@ -46,15 +48,20 @@ export default function App() {
     setEntries(loaded.sort((a, b) => b.createdAt - a.createdAt));
   }, []);
 
+  const loadSharedModules = useCallback(async () => {
+    setSharedModules(await db.listModuleDefinitions());
+  }, []);
+
   useEffect(() => {
     (async () => {
       await ensureDbInitialized();
       const active = await ensureDefaultJournal(db);
       setJournal(active);
       await loadEntries(active.id);
+      await loadSharedModules();
       setReady(true);
     })();
-  }, [loadEntries]);
+  }, [loadEntries, loadSharedModules]);
 
   const handleCreateEntry = useCallback(
     async (event: FormEvent) => {
@@ -270,6 +277,11 @@ export default function App() {
           <WeatherModule networkState={networkState} />
           {isTauri() && <GithubModule networkState={networkState} />}
           {isTauri() && <GoogleCalendarModule networkState={networkState} />}
+          <SharedModulesPanel
+            entries={entries}
+            sharedModules={sharedModules}
+            onSharedModulesChange={loadSharedModules}
+          />
         </div>
 
         <form className="entry-form" onSubmit={handleCreateEntry}>

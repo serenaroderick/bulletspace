@@ -1,4 +1,5 @@
 import { type DBSchema, type IDBPDatabase, openDB } from "idb";
+import type { ModuleDefinition } from "../modules.js";
 import type { CanvasElement, Entry, Journal } from "../types.js";
 import type { AdapterCacheEntry, DatabaseAdapter } from "./adapter.js";
 
@@ -21,10 +22,14 @@ interface BulletSpaceDB extends DBSchema {
     key: string;
     value: AdapterCacheEntry;
   };
+  moduleDefinitions: {
+    key: string;
+    value: ModuleDefinition;
+  };
 }
 
 const DEFAULT_DB_NAME = "bulletspace";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 /**
  * Web adapter backed by IndexedDB. Requires a browser (or a browser-like
@@ -54,6 +59,10 @@ export class IndexedDBAdapter implements DatabaseAdapter {
 
         if (!db.objectStoreNames.contains("adapterCache")) {
           db.createObjectStore("adapterCache", { keyPath: "adapterId" });
+        }
+
+        if (!db.objectStoreNames.contains("moduleDefinitions")) {
+          db.createObjectStore("moduleDefinitions", { keyPath: "id" });
         }
       },
     });
@@ -132,5 +141,17 @@ export class IndexedDBAdapter implements DatabaseAdapter {
 
   async setCachedAdapterData(entry: AdapterCacheEntry): Promise<void> {
     await this.connection.put("adapterCache", entry);
+  }
+
+  async createModuleDefinition(moduleDef: ModuleDefinition): Promise<void> {
+    await this.connection.put("moduleDefinitions", moduleDef);
+  }
+
+  async listModuleDefinitions(): Promise<ModuleDefinition[]> {
+    return this.connection.getAll("moduleDefinitions");
+  }
+
+  async deleteModuleDefinition(id: string): Promise<void> {
+    await this.connection.delete("moduleDefinitions", id);
   }
 }

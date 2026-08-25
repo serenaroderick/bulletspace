@@ -1,3 +1,4 @@
+import type { ModuleDefinition } from "../modules.js";
 import type { CanvasElement, Entry, Journal } from "../types.js";
 import type { AdapterCacheEntry, DatabaseAdapter } from "./adapter.js";
 
@@ -9,6 +10,7 @@ export class InMemoryAdapter implements DatabaseAdapter {
   private entries = new Map<string, Entry>();
   private canvasElements = new Map<string, CanvasElement>();
   private adapterCache = new Map<string, AdapterCacheEntry>();
+  private moduleDefinitions = new Map<string, ModuleDefinition>();
 
   async init(): Promise<void> {
     // Nothing to initialize for an in-memory store.
@@ -82,5 +84,17 @@ export class InMemoryAdapter implements DatabaseAdapter {
 
   async setCachedAdapterData(entry: AdapterCacheEntry): Promise<void> {
     this.adapterCache.set(entry.adapterId, entry);
+  }
+
+  async createModuleDefinition(moduleDef: ModuleDefinition): Promise<void> {
+    this.moduleDefinitions.set(moduleDef.id, moduleDef);
+  }
+
+  async listModuleDefinitions(): Promise<ModuleDefinition[]> {
+    return [...this.moduleDefinitions.values()];
+  }
+
+  async deleteModuleDefinition(id: string): Promise<void> {
+    this.moduleDefinitions.delete(id);
   }
 }

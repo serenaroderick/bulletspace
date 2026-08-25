@@ -1,4 +1,4 @@
-import type { DataPayload } from "../modules.js";
+import type { DataPayload, ModuleDefinition } from "../modules.js";
 import type { CanvasElement, Entry, Journal } from "../types.js";
 
 export interface AdapterCacheEntry {
@@ -29,4 +29,9 @@ export interface DatabaseAdapter {
 
   getCachedAdapterData(adapterId: string): Promise<AdapterCacheEntry | undefined>;
   setCachedAdapterData(entry: AdapterCacheEntry): Promise<void>;
+
+  /** Imported (Phase 4 "manual sharing") module definitions -- not the hardcoded modules, which aren't data-driven. */
+  createModuleDefinition(moduleDef: ModuleDefinition): Promise<void>;
+  listModuleDefinitions(): Promise<ModuleDefinition[]>;
+  deleteModuleDefinition(id: string): Promise<void>;
 }

@@ -291,16 +291,42 @@ adapter going live here, backend-free — **done**, fully verified live.
 **Goal:** test whether people actually want to share modules — without
 building a marketplace UI.
 
-- [ ] Export/import module + adapter JSON (copy-paste or paste-a-gist-URL level)
-- [ ] Secretless adapters only, first-party (`pkce`, `oauth_loopback`,
-      `device_flow` — the latter two require Desktop from Phase 3, per the
-      CORS finding above — and `api_key`, which has worked since Phase 1) —
-      no `oauth_client_secret` adapters yet
-- [ ] No editor, no browse UI — this is the cheap test
+- [x] Export/import module + adapter JSON, copy-paste level — but not
+      quite "module + adapter" as literally written. Only the **Module**
+      (declarative JSON) travels as real content; **Adapters** are
+      executable code, a higher trust tier per PITCH.md, so only their
+      identifying metadata (id/name/version) comes along as a manifest —
+      no adapter code is ever transmitted. `packages/core/src/moduleShare.ts`
+      (`serializeModuleShare`/`parseModuleShare`/`checkRequiredAdapters`,
+      7 tests) defines the format; `apps/web/src/adapters/registry.ts` is
+      what import validates the manifest against (what this *build* has
+      the code for, not what the user has connected/authenticated).
+      **Verified live, and genuinely proves the point** — not just JSON
+      round-tripping: clicked Share on the real Mood vs. Weather module,
+      pasted the resulting JSON as plain text, clicked Import, and got a
+      real rendered scatter chart with actual data (17°C, mood 6),
+      reconstructed entirely from that pasted text via a generic runner
+      (`apps/web/src/lib/runModule.ts` + the existing `ModuleOutputRenderer`)
+      that re-executes the query engine against whatever's locally
+      available — completely independent of the original component's own
+      state. Survived a page reload (new `moduleDefinitions` DB
+      collection, IndexedDB bumped to schema v3) and removed cleanly.
+      Only one shareable module exists today (Mood vs. Weather) since it's
+      the only one actually built on `ModuleDefinition` — the rest
+      (habit streak, mood chart, etc.) are hardcoded React components by
+      design, not data-driven, so there's nothing to serialize yet.
+- [x] Secretless adapters only, first-party (`pkce`, `oauth_loopback`,
+      `device_flow`, `api_key`) — already true, no `oauth_client_secret`
+      adapters exist.
+- [x] No editor, no browse UI — this is the cheap test. Sharing is
+      literally copy-paste text (clipboard on export, a textarea on
+      import); no module-building UI, no server-side listing.
 
 **Success criteria:** you and a few trusted creators manually share 5-10
 modules with each other. If this works, Phase 5+ is justified. If it
-doesn't, stop here rather than building a marketplace nobody uses.
+doesn't, stop here rather than building a marketplace nobody uses. The
+mechanism is proven; whether people actually *want* to do this is now a
+real-world question, not a code one.
 
 ## Phase 5: Optional Backend — Auth, Sync, OAuth Relay (10-12 weeks)
 

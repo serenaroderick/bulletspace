@@ -432,3 +432,45 @@
   cursor: pointer;
   color: inherit;
 }
+
+.shared-modules-hint {
+  color: #8888;
+  font-size: 0.85rem;
+  margin: 0 0 0.5rem;
+}
+
+.shared-modules-textarea {
+  width: 100%;
+  font: inherit;
+  padding: 0.5rem;
+  border: 1px solid #8885;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  margin-bottom: 0.5rem;
+  resize: vertical;
+}
+
+.shared-modules-preview {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #8883;
+}
+
+.shared-modules-preview ul {
+  list-style: none;
+  margin: 0.5rem 0;
+  padding: 0;
+}
+
+.adapter-available {
+  color: #4fbf6b;
+}
+
+.adapter-missing {
+  color: #d94f4f;
+}
+
+.shared-modules-panel > .module {
+  margin-top: 1rem;
+}
