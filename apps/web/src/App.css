@@ -169,6 +169,27 @@
   width: 9rem;
 }
 
+.sync-panel {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.sync-panel input {
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #8885;
+  font: inherit;
+  font-size: 0.85rem;
+  width: 9rem;
+}
+
+.sync-status {
+  color: #8888;
+  font-size: 0.8rem;
+}
+
 .entry-form {
   display: flex;
   flex-direction: column;

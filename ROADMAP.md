@@ -378,9 +378,33 @@ Same model as Obsidian Sync or Anytype's optional sync layer.
       structurally incapable of reading plaintext. 6 tests covering
       round-trip, wrong password, tampered ciphertext, randomness, empty
       string, and unicode.
-- [ ] Encrypted sync across devices — schema, encryption primitive, and
-      account sign-in are all ready; no sync client yet (nothing reads
-      `sync_blobs`/writes journal data to it). Next piece of this phase.
+- [x] Encrypted sync across devices — `apps/web/src/lib/sync.ts`
+      (`pushJournal`/`pullJournal`) reuses the existing JSON-export shape
+      (`serializeJournalExport`/`parseJournalExport`, same as manual
+      Import/Export) as the plaintext, encrypts it with a user-entered
+      sync passphrase before it ever leaves the device, and stores/reads
+      it via `sync_blobs`. `SyncPanel.tsx` is the push/pull UI, nested
+      under `AccountPanel` once signed in. A pulled journal's entries are
+      remapped onto the local journal id rather than treated as a second
+      journal — same convention the manual JSON import already uses,
+      since each device generates its own random journal id on first run
+      (there's no stable cross-device journal id to match against yet).
+      **The sync passphrase is deliberately separate from the account
+      password** — it's never sent to the server, purely a local
+      encryption key. Flagging this as a UX tradeoff, not a settled
+      decision: it's an extra secret to remember versus deriving the key
+      from the account password Bitwarden/Standard-Notes-style.
+      Verified live via Playwright with two isolated browser contexts
+      (separate localStorage/IndexedDB, same account) standing in for two
+      devices: push from "device A", wrong-passphrase pull on "device B"
+      correctly rejected (decryption failure surfaced to the UI), correct
+      passphrase pulls device A's entry onto device B. Caught and fixed a
+      real bug in the process — `sync_blobs` was missing `created`/
+      `updated` autodate fields (PocketBase only adds those to its own
+      built-in collections, not custom ones), which broke sorting for
+      "most recent blob"; fixed via an additive migration
+      (`2_sync_blobs_timestamps.js`) rather than editing migration 1, to
+      avoid wiping the already-running local dev database.
 - [ ] OAuth relay for `oauth_client_secret` adapters — providers with no
       secretless path at all, on any platform. (By this point, PKCE and
       `api_key` adapters have worked since Phase 1, and `oauth_loopback` /

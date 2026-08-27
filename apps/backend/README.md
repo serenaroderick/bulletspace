@@ -48,10 +48,11 @@ any time to reset to a clean local instance.
 
 - Nothing is deployed publicly. Phase 5 is being built local-first per
   ROADMAP.md's own philosophy — same as every other phase.
-- Sign-up/sign-in (email/password) is wired up in `apps/web` — see
-  `src/lib/pocketbase.ts` and `src/components/AccountPanel.tsx` — but
-  nothing reads or writes `sync_blobs` yet. No sync client.
 - Google/GitHub OAuth2 for accounts — PocketBase supports this natively,
   deferred until a provider app is registered.
 - OAuth relay for `oauth_client_secret` adapters — separate concern,
   not yet built.
+
+Sign-up/sign-in and encrypted push/pull sync are both wired up and
+verified live — see `apps/web/src/lib/pocketbase.ts`, `sync.ts`, and
+`components/{AccountPanel,SyncPanel}.tsx`.

@@ -1,12 +1,17 @@
-import type { NetworkState } from "@bulletspace/core";
+import type { Entry, Journal, NetworkState } from "@bulletspace/core";
 import { type FormEvent, useEffect, useState } from "react";
 import { type AuthUser, getCurrentUser, onAuthChange, signIn, signOut, signUp } from "../lib/pocketbase";
+import type { PulledJournal } from "../lib/sync";
+import { SyncPanel } from "./SyncPanel";
 
 interface AccountPanelProps {
   networkState: NetworkState;
+  journal: Journal;
+  entries: Entry[];
+  onPulled: (pulled: PulledJournal) => Promise<void>;
 }
 
-export function AccountPanel({ networkState }: AccountPanelProps) {
+export function AccountPanel({ networkState, journal, entries, onPulled }: AccountPanelProps) {
   const [user, setUser] = useState<AuthUser | null>(getCurrentUser());
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -46,6 +51,7 @@ export function AccountPanel({ networkState }: AccountPanelProps) {
         <button type="button" onClick={signOut}>
           Sign out
         </button>
+        <SyncPanel journal={journal} entries={entries} onPulled={onPulled} />
       </div>
     );
   }
