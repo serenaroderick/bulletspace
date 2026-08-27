@@ -1,6 +1,7 @@
 import type { CanvasConfig, Entry, Journal, ModuleDefinition, NetworkState } from "@bulletspace/core";
 import { type ChangeEvent, type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
+import { AccountPanel } from "./components/AccountPanel";
 import { EntryCanvas } from "./components/EntryCanvas";
 import { EntryView } from "./components/EntryView";
 import { EnergyFocusChart } from "./components/modules/EnergyFocusChart";
@@ -263,6 +264,7 @@ export default function App() {
             onChange={handleImportFileChange}
           />
           <NetworkToggle state={networkState} onChange={handleNetworkStateChange} />
+          <AccountPanel networkState={networkState} />
         </div>
       </header>
       {importError && <p className="import-error">{importError}</p>}

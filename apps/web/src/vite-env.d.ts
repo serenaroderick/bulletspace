@@ -4,6 +4,7 @@ interface ImportMetaEnv {
   readonly VITE_GITHUB_CLIENT_ID: string;
   readonly VITE_SPOTIFY_CLIENT_ID?: string;
   readonly VITE_GOOGLE_CLIENT_ID?: string;
+  readonly VITE_POCKETBASE_URL?: string;
 }
 
 interface ImportMeta {

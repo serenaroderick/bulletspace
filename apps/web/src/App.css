@@ -136,6 +136,39 @@
   background: #8883;
 }
 
+.account-panel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.account-panel button {
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #8885;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.account-form {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.account-form input {
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #8885;
+  font: inherit;
+  font-size: 0.85rem;
+  width: 9rem;
+}
+
 .entry-form {
   display: flex;
   flex-direction: column;

@@ -37,6 +37,9 @@ importers:
       konva:
         specifier: ^9.3.14
         version: 9.3.22
+      pocketbase:
+        specifier: ^0.28.0
+        version: 0.28.0
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -985,6 +988,9 @@ packages:
 
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
+
+  pocketbase@0.28.0:
+    resolution: {integrity: sha512-aCrab5XPPQ40iKIKicQLdUvrAvJQCHZ3cwZD5i22A8PVM/EcemUta7WFw0x4G6WQEOBMa/8kioqCR62ozk4KvQ==}
 
   postcss@8.5.26:
     resolution: {integrity: sha512-u82N74LFzG8ca+dD8puPnplTXoGH4fTPpVGuIbt36G3qvNlkvfD0lEAZSxaly3KX8TS/L1A1gsCEmvKmBcVbkQ==}
@@ -2218,6 +2224,8 @@ snapshots:
   pathval@2.0.1: {}
 
   picocolors@1.1.1: {}
+
+  pocketbase@0.28.0: {}
 
   postcss@8.5.26:
     dependencies:

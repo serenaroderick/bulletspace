@@ -1,4 +1,5 @@
 export * from "./types.js";
+export * from "./encryption.js";
 export * from "./modules.js";
 export * from "./moduleShare.js";
 export * from "./queryEngine.js";

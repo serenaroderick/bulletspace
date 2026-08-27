@@ -1,9 +1,9 @@
 import type { NetworkState } from "@bulletspace/core";
 
 const OPTIONS: Array<{ value: NetworkState; label: string; icon: string }> = [
-  { value: "local", label: "Local Purist", icon: "🔒" },
-  { value: "connected", label: "Connected Citizen", icon: "🌐" },
-  { value: "ai", label: "AI Enhanced", icon: "🧠" },
+  { value: "local", label: "Offline", icon: "🔒" },
+  { value: "connected", label: "Online", icon: "🌐" },
+  { value: "ai", label: "AI Enabled", icon: "✨" },
 ];
 
 interface NetworkToggleProps {

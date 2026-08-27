@@ -1,6 +1,6 @@
 # Roadmap
 
-Realistic timelines for a solo dev working nights/weekends. Each phase ships
+Timeline for solo development, working nights/weekends. Each phase ships
 something usable; nothing expensive gets built until an earlier, cheaper
 phase has proven demand for it. See [PITCH.md](PITCH.md) for the product
 vision this roadmap implements.
@@ -343,12 +343,44 @@ trust: use a public hosted instance (convenient), self-host their own
 (maximum privacy), or skip it entirely (Local Purist, always available).
 Same model as Obsidian Sync or Anytype's optional sync layer.
 
-- [ ] Auth.js integration (Google, GitHub) for accounts (separate from the
-      adapter OAuth below)
-- [ ] Supabase/PocketBase setup, deployable to Cloudflare Workers/Vercel or
-      self-hosted
-- [ ] Client-side encryption layer (password-based) for sync
-- [ ] Encrypted sync across devices
+- [x] Accounts (email/password) — `apps/web/src/lib/pocketbase.ts` wraps
+      the `pocketbase` JS SDK; every request (auth, CRUD, the SDK's own
+      token auto-refresh) is routed through the same `NetworkGatekeeper`
+      every adapter fetch goes through, via `pb.beforeSend` injecting
+      `gatekeeper.guardedFetch` as the request's `fetch`. `AccountPanel.tsx`
+      is the sign-up/sign-in/sign-out UI, gated behind Online/AI mode.
+      Verified live end-to-end via Playwright against a running dev
+      server + local PocketBase instance: sign-up creates a real
+      PocketBase record (confirmed via direct API query), session
+      persists across a page reload, sign-out then sign-in with the same
+      credentials works. Separately verified Local mode blocks the call
+      at the network layer, not just in the UI — a direct `signIn()` call
+      while in Local mode is caught by the gatekeeper (visible in its
+      request log as `allowed: false`) before any fetch goes out.
+      **Note:** originally scoped as a separate Auth.js integration, but
+      Auth.js expects a Node server of its own, which a pure Vite SPA
+      doesn't have. Google/GitHub OAuth2 (PocketBase ships this built-in)
+      is deferred, not abandoned — email/password proved the wiring end
+      to end without needing OAuth app registrations first.
+- [x] PocketBase setup — installed locally (`apps/backend/`, see its
+      README), schema-as-code migration for the one collection sync
+      needs (`sync_blobs`), per-user access rules
+      (`owner = @request.auth.id`) verified live against a running
+      instance via curl: own create/read succeed, cross-user reads 404,
+      owner-impersonation on create is rejected, unauthenticated is
+      blocked. Local dev only — nothing deployed publicly yet; deployment
+      (Cloudflare Workers/Vercel or self-hosted) deferred until the
+      frontend actually talks to it.
+- [x] Client-side encryption layer (password-based) for sync —
+      `packages/core/src/encryption.ts`: PBKDF2 (250k iterations) + AES-GCM
+      via Web Crypto, no external deps. `sync_blobs.encryptedPayload` only
+      ever holds this output (salt/iv/ciphertext), so the backend is
+      structurally incapable of reading plaintext. 6 tests covering
+      round-trip, wrong password, tampered ciphertext, randomness, empty
+      string, and unicode.
+- [ ] Encrypted sync across devices — schema, encryption primitive, and
+      account sign-in are all ready; no sync client yet (nothing reads
+      `sync_blobs`/writes journal data to it). Next piece of this phase.
 - [ ] OAuth relay for `oauth_client_secret` adapters — providers with no
       secretless path at all, on any platform. (By this point, PKCE and
       `api_key` adapters have worked since Phase 1, and `oauth_loopback` /
