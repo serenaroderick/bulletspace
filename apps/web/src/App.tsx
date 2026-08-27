@@ -21,6 +21,7 @@ import { parseJournalExport } from "./lib/importExport";
 import { ensureDefaultJournal } from "./lib/journal";
 import { isTauri } from "./lib/platform";
 import { clampRating, parseTags } from "./lib/rating";
+import type { PulledJournal } from "./lib/sync";
 
 function newId(): string {
   return crypto.randomUUID();
@@ -163,6 +164,30 @@ export default function App() {
     await exportJournal(journal, entries);
   }, [journal, entries]);
 
+  // Same merge convention as handleImportFileChange: a pulled journal's id
+  // won't match this device's local journal id (each device generates its
+  // own on first run, see ensureDefaultJournal), so entries are remapped
+  // onto the local journal rather than treated as a second journal.
+  const handleSyncPulled = useCallback(
+    async (pulled: PulledJournal) => {
+      if (!journal) return;
+      await db.updateJournal(journal.id, { title: pulled.journal.title, icon: pulled.journal.icon });
+      setJournal((prev) => (prev ? { ...prev, title: pulled.journal.title, icon: pulled.journal.icon } : prev));
+
+      const existingIds = new Set(entries.map((entry) => entry.id));
+      for (const imported of pulled.entries) {
+        const entry: Entry = { ...imported, journalId: journal.id };
+        if (existingIds.has(entry.id)) {
+          await db.updateEntry(entry.id, entry);
+        } else {
+          await db.createEntry(entry);
+        }
+      }
+      await loadEntries(journal.id);
+    },
+    [journal, entries, loadEntries],
+  );
+
   // Native menu items (File > New Entry / Export / Import) emit these same
   // event names from the Rust side -- see apps/desktop/src-tauri/src/lib.rs.
   // Only relevant on desktop; a plain browser tab never receives them.
@@ -264,7 +289,7 @@ export default function App() {
             onChange={handleImportFileChange}
           />
           <NetworkToggle state={networkState} onChange={handleNetworkStateChange} />
-          <AccountPanel networkState={networkState} />
+          <AccountPanel networkState={networkState} journal={journal} entries={entries} onPulled={handleSyncPulled} />
         </div>
       </header>
       {importError && <p className="import-error">{importError}</p>}
