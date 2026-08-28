@@ -1,11 +1,10 @@
 # Roadmap
 
-Timeline for solo development, working nights/weekends. Each phase ships
-something usable; nothing expensive gets built until an earlier, cheaper
-phase has proven demand for it. See [PITCH.md](PITCH.md) for the product
-vision this roadmap implements.
+Development plan for BulletSpace, built solo. Each phase ships something
+usable. See [PITCH.md](PITCH.md) for the product vision this roadmap
+implements.
 
-## Phase 0: Core Library (2-3 weeks)
+## Phase 0: Core Library
 
 **Goal:** solid foundation. Pure TypeScript, no UI.
 
@@ -30,7 +29,7 @@ vision this roadmap implements.
 
 *(Status: done — see [`packages/core`](packages/core), 27 passing tests.)*
 
-## Phase 1: Web MVP (12-16 weeks)
+## Phase 1: Web MVP
 
 **Goal:** a working journal. Hardcoded modules proving the schema.
 
@@ -75,7 +74,7 @@ at all) has neither problem and is what's actually live today.
 Gatekeeper works. The weather adapter proves a real `guardedFetch`-routed
 network call end to end, verified live against the real API.
 
-## Phase 1.5: Polish (4 weeks)
+## Phase 1.5: Polish
 
 **Goal:** stability and feedback.
 
@@ -95,7 +94,7 @@ network call end to end, verified live against the real API.
 - [ ] UX improvements based on daily use — pending actual usage
 - [ ] Community testing (friends, early adopters)
 
-## Phase 2: Query Engine (8-10 weeks)
+## Phase 2: Query Engine
 
 **Goal:** one unified pipeline (fetch → merge/join → filter → formula →
 sort/group → output) replacing the separate "Reactive Data Engine" and
@@ -183,7 +182,7 @@ for the merge module. Dashboard is at 6 modules now (habit streak, mood
 chart, energy/focus chart, tag frequency, mood-vs-weather merge, weather),
 still short of 10 total.
 
-## Phase 3: Desktop Port (4-6 weeks)
+## Phase 3: Desktop Port
 
 **Goal:** native performance and file system access.
 
@@ -286,7 +285,7 @@ backend-free — **done**, pending only the Device Flow checkbox on the
 GitHub App itself (a one-time setup step, not a code gap). Google Calendar
 adapter going live here, backend-free — **done**, fully verified live.
 
-## Phase 4: Manual Sharing (4-6 weeks)
+## Phase 4: Manual Sharing
 
 **Goal:** test whether people actually want to share modules — without
 building a marketplace UI.
@@ -328,7 +327,7 @@ doesn't, stop here rather than building a marketplace nobody uses. The
 mechanism is proven; whether people actually *want* to do this is now a
 real-world question, not a code one.
 
-## Phase 5: Optional Backend — Auth, Sync, OAuth Relay (10-12 weeks)
+## Phase 5: Optional Backend — Auth, Sync, OAuth Relay
 
 **Goal:** introduce a backend, but only as an opt-in, open-source,
 self-hostable *add-on* — never a requirement. Local Purist mode never
@@ -433,20 +432,252 @@ one. Any remaining confidential-secret adapters can now authenticate
 securely via the relay. Local Purist mode, verified by the gatekeeper,
 still makes zero network calls.
 
-## Phase 6: The Expensive Stuff (12+ weeks, ongoing)
+## Phase 5.5: Theme & Asset Foundation
 
-**Goal:** the platform layer. Only build this once Phase 4 has proven demand.
+**Goal:** make themes and visual assets a real, installable concept in the
+app.
 
-- [ ] Visual Editor (drag, drop, configure modules)
-- [ ] Template Library UI (browse, search, filter)
-- [ ] Marketplace v1 (install, rate, review) — Modules open to community
-      submissions per the trust-tier split below; Adapters remain
-      curated/first-party until sandboxing is proven out
-- [ ] Trusted Creator Program (application, review, publishing workflow)
-- [ ] Gated, sandboxed React import for trusted creators only
+- [ ] Theme schema defined — `packages/core/src/types.ts` gains
+      `ThemeDefinition` (colors, fonts, spacing, corner radii, line
+      thicknesses, grid style, canvas background — color/gradient/texture)
+      and `AssetDefinition` (a pack of stickers/icons/fonts, as file
+      references or data URLs)
+- [ ] Theme switcher UI — a dropdown or sidebar listing installed themes;
+      selecting one applies its CSS variables and canvas rendering
+      properties (grid color, background, etc.) immediately
+- [ ] Sticker picker UI — a panel of stickers from installed asset packs;
+      clicking one adds it to the canvas at a default position (center of
+      the current viewport) with basic properties (size, opacity, rotation)
+- [ ] Manual theme sharing — Phase 4's export/import mechanism extended to
+      themes and asset packs: exportable as JSON, importable via the same
+      copy-paste/file-upload interface and validation patterns
+- [ ] Theme persistence — the selected theme is saved to
+      localStorage/IndexedDB and reloaded on startup
+- [ ] Asset registry — installed themes and asset packs are tracked in a
+      registry, and the UI reflects the active theme across modules (chart
+      colors, fonts, etc. all update)
 
-**Success criteria:** a community-driven module ecosystem. Non-technical
-users can build and share modules without touching code.
+**Success criteria:** installing a theme changes the whole app's look —
+colors, fonts, grid, canvas background — with no reload. A theme or asset
+pack can be exported and re-imported through the same mechanism Phase 4
+already proved for modules.
+
+## Phase 5.6: Grid & Parallax Enhancements
+
+**Goal:** improve the canvas atmosphere with multiple grid styles and
+parallax depth.
+
+- [ ] Grid styles — dot (current default), lined, graph (squared),
+      isometric (30° angled), hexagonal, circular (concentric rings), and
+      blank (no grid)
+- [ ] Grid configuration — spacing, color, and opacity configurable via a
+      settings panel (or the Phase 5.5 theme system)
+- [ ] Canvas background — solid color (picker), gradient (linear/radial,
+      configurable stops), texture (repeatable pattern, e.g. paper grain),
+      or a user-uploaded image
+- [ ] Parallax layers — the grid moves at 1x with the canvas; the
+      background moves at a configurable speed (default 0.3x), creating
+      depth when panning
+- [ ] Parallax toggle — users can enable/disable parallax in settings
+- [ ] Photo layer — a distinct layer behind the grid (z-index 3) where
+      photos can be placed with a configurable parallax speed (default 0.7x)
+- [ ] Infinite background — procedurally generated or tileable, with no
+      seams even when panning indefinitely
+
+**Success criteria:** panning the canvas visibly shows depth (grid and
+background moving at different speeds) with no seams no matter how far you
+pan, and every listed grid style is selectable and applies immediately.
+
+## Phase 6.1: Figma-Style UI Shell
+
+**Goal:** replace the current UI with a Figma/Adobe-like interface.
+
+- [ ] Floating left toolbar with icons for: Select (default click/drag
+      mode), Add Module (opens the module palette), Add Image, Add Sticker
+      (opens the Phase 5.5 sticker picker), Add Text, Draw (optional,
+      freehand — only if built), Asset Store (opens the Phase 6.4 panel),
+      Account Settings (profile, sync, passphrase)
+- [ ] Toolbar interaction — clicking an icon opens its panel or triggers
+      its action; the toolbar itself is collapsible
+- [ ] Top-right state toggle — the existing Local/Connected/AI tri-state
+      toggle moves from its current location to the top-right corner,
+      restyled to match the Figma aesthetic
+- [ ] Collapsible right panel showing one of: Properties (Phase 6.3),
+      Layers (Phase 6.5), or Asset Store (Phase 6.4)
+- [ ] Zoom controls — in/out buttons plus a zoom percentage indicator in
+      the top bar or toolbar
+- [ ] Consistent styling — the new shell uses the active theme's colors
+      and fonts (Phase 5.5)
+
+**Success criteria:** the dashboard looks and behaves like a Figma-style
+canvas app — a floating toolbar drives every add/select action, the
+tri-state toggle lives top-right, and the collapsible right panel is ready
+to host Properties/Layers/Asset Store content from later phases.
+
+## Phase 6.2: Draggable, Overlapping Modules
+
+**Goal:** modules are no longer grid-locked; they can be placed anywhere,
+resized, and layered.
+
+- [ ] Drag anywhere — click-and-hold anywhere on a module (not just its
+      header) to drag it; it follows the cursor smoothly
+- [ ] Position persistence — each module's x/y is saved to the database
+      (IndexedDB/file system) and restored on reload
+- [ ] Z-index stacking — clicking a module brings it to front; stacking
+      order persists across reloads
+- [ ] Resize handles on each module's corners and edges; the new size
+      persists
+- [ ] Rotation handle (e.g. a small circle above the module) for free
+      rotation; rotation persists
+- [ ] Snap to grid — dragging snaps to grid lines at a configurable
+      spacing; toggleable on/off
+- [ ] Multi-select — shift+click selects multiple modules, which can then
+      be moved, resized, rotated, or deleted together
+- [ ] Grouping — Cmd+G groups selected modules into a single unit,
+      Cmd+Shift+G ungroups; groups move/resize/layer as one
+- [ ] Context menu — right-clicking a module or group offers Bring to
+      Front, Send to Back, Duplicate, Delete, Group/Ungroup
+
+**Success criteria:** modules can be freely dragged, resized, rotated,
+layered, grouped, and reordered via context menu, with every property
+surviving a reload.
+
+## Phase 6.3: Module Properties Panel
+
+**Goal:** let users configure module data and appearance via a panel.
+
+- [ ] Property panel UI — selecting a module shows its configuration in
+      the right panel
+- [ ] Data sources — dropdowns list and let users change which adapters a
+      module uses
+- [ ] Field mapping — for merge modules, map fields (e.g. `m.date = w.day`)
+      via dropdowns
+- [ ] Filters — add, edit, and remove filter conditions (date ranges,
+      numeric thresholds, keyword search)
+- [ ] Formulas — add computed fields via a simple expression editor with
+      syntax highlighting and validation. **This authors the same minimal
+      declarative expression language Phase 2's query engine already
+      defines** (`"target = a + b"`-style, no `eval()`/`new Function()`) —
+      a friendlier editor for it, not a new arbitrary-code capability; the
+      declarative-Modules trust tier from PITCH.md still holds.
+- [ ] Chart type — switch between line, bar, scatter, table, and other
+      supported visualizations
+- [ ] Visual overrides — override the active theme's colors, fonts, and
+      spacing for the selected module
+- [ ] Live preview — changes apply immediately on canvas, no "Apply" button
+- [ ] Validation — invalid configurations (e.g. missing required fields)
+      are clearly flagged with error messages
+
+**Success criteria:** selecting a module surfaces a full config panel —
+adapters, field mapping, filters, formulas, chart type, visual overrides —
+and every change reflects on canvas immediately, with invalid configs
+clearly flagged rather than failing silently.
+
+## Phase 6.4: Asset Store Panel
+
+**Goal:** users can browse, search, and install modules, themes, stickers,
+and fonts.
+
+**Depends on Phase 5's still-open "Marketplace API backing Phase 6" item**
+— this entire phase needs a real backend to list, search, and install
+assets against, and that API has no concrete scope defined yet. This
+phase can't meaningfully start until that's built. Modules stay open to
+community submissions per the Trusted Creator Model below; Adapters remain
+curated/first-party until Phase 6.7's sandboxing is proven out.
+
+- [ ] Asset Store panel opens from the toolbar, displaying available assets
+- [ ] Categories — assets grouped by type: Modules, Themes, Stickers,
+      Fonts, Backgrounds, Filters
+- [ ] Browse — scroll through assets; each shows name, description,
+      author, rating, and an install button
+- [ ] Search by keyword
+- [ ] Filter by category, rating, and popularity
+- [ ] One-click install — downloads the asset via the marketplace API and
+      makes it available in the app
+- [ ] Installed indicator — installed assets show a badge/checkmark;
+      users can uninstall
+- [ ] Asset details — clicking an asset opens description, screenshots,
+      version history, and reviews
+
+**Success criteria:** a user can search the asset store, install a
+theme/sticker pack/module with one click, see it marked installed, and
+uninstall it — backed by a real marketplace API, not a hardcoded list.
+
+## Phase 6.5: Collage & Layer Management
+
+**Goal:** add photo collage support and a layer panel for managing all
+canvas elements.
+
+- [ ] Photo upload via the "Add Image" toolbar button; appears on canvas
+      at a default size/position
+- [ ] Photo manipulation — drag, resize, rotate, and adjust opacity (slider)
+- [ ] Photo filters — sepia, vintage, blur, grayscale
+- [ ] Sticker integration — Phase 5.5 stickers addable via the sticker
+      picker and manipulable like photos
+- [ ] Layer panel — a right-panel tab listing every canvas item (modules,
+      photos, stickers, text boxes, groups) with name, type, and thumbnail
+- [ ] Layer reordering — drag items in the layer panel to reorder z-index;
+      canvas updates immediately
+- [ ] Layer controls per item — Lock (prevent movement/selection), Hide
+      (toggle visibility), Delete
+- [ ] Selection sync — selecting a layer item selects its canvas element
+      and vice versa
+
+**Success criteria:** every element on the canvas — modules, photos,
+stickers, text — shows up in the layer panel with working
+lock/hide/delete/reorder, and selecting either the canvas element or its
+layer entry highlights the other.
+
+## Phase 6.6: Undo/Redo
+
+**Goal:** users can undo and redo canvas actions.
+
+- [ ] History tracking for every canvas state change: position, add,
+      delete, resize, rotate, config changes (Phase 6.3), layer
+      reordering, lock/hide toggles
+- [ ] Undo (Cmd+Z) reverts the last action; history stack holds at least
+      100 actions
+- [ ] Redo (Cmd+Shift+Z) reapplies an undone action
+- [ ] Action grouping — rapid-succession actions (e.g. dragging a module)
+      are debounced into a single undo step
+- [ ] State restoration — undo/redo correctly restores positions,
+      z-index, configs, and layer settings
+- [ ] UI feedback — the toolbar shows available undo/redo count, or grays
+      out when none are available
+
+**Success criteria:** Cmd+Z/Cmd+Shift+Z correctly walks backward/forward
+through at least 100 grouped actions across every kind of canvas mutation,
+with the toolbar accurately reflecting what's available.
+
+## Phase 6.7: Trusted Creator & Sandboxing
+
+**Goal:** enable community contributions with safety.
+
+**Also depends on Phase 5's still-open Marketplace API item** — "approved
+creators are flagged in the marketplace backend" needs that backend to
+exist first. See the Trusted Creator Model below, which this phase makes
+concrete.
+
+- [ ] Trusted Creator Program — a documented application/review process,
+      described in PITCH.md and this roadmap
+- [ ] Creator application UI — a form for submitting a portfolio of
+      self-built work
+- [ ] Review workflow — an admin interface (or manual process) for
+      reviewing applications; approved creators are flagged in the
+      marketplace backend
+- [ ] Gated React import — trusted creators can upload React components
+      as part of module submissions, sandboxed in an iframe with `sandbox`
+      attributes set (no `allow-same-origin`)
+- [ ] Automated schema validation — every submitted module, even from
+      trusted creators, is validated against the module schema before
+      publishing
+- [ ] Lightweight review queue — new publishes from trusted creators get a
+      quick human check before going live
+
+**Success criteria:** a creator can apply, get reviewed, and publish a
+React-based module that runs sandboxed in a locked-down iframe, with every
+publish — from any creator — still passing automated schema validation
+before going live.
 
 ---
 
@@ -467,27 +698,33 @@ review queue.
 
 **Why it works:** Adapters execute code and hold OAuth secrets — a higher
 trust tier than declarative Modules — so they stay curated/first-party
-regardless of creator status until Phase 6's sandboxing work is proven out.
+regardless of creator status until Phase 6.7's sandboxing work is proven
+out.
 Gating *code-bearing* marketplace publishes solves the quality and security
 problem (arbitrary published code is what Figma/Canva/Shopify gate too) at
 the cost of a documentation paragraph today, not engineering time. The
 approval workflow and sandboxed React import are the only pieces of this
-policy that cost engineering time, and both are deferred to Phase 6.
+policy that cost engineering time, and both are scoped concretely in
+Phase 6.7 (iframe `sandbox` attributes, no `allow-same-origin`, automated
+schema validation ahead of a lightweight human review queue).
 
 ## Summary
 
-| Phase | Focus | Backend required? | Timeline | Key deliverables |
-|---|---|---|---|---|
-| 0 | Core library | No | 2-3wk | Types, gatekeeper, DB adapters, schema |
-| 1 | Web MVP | No | 12-16wk | Canvas, Markdown, SQLite, hardcoded modules, weather adapter |
-| 1.5 | Polish | No | 4wk | Bug fixes, UX |
-| 2 | Query engine | No | 8-10wk | Unified pipeline, merge joins, cache, 10+ modules |
-| 3 | Desktop | No | 4-6wk | Tauri, file system, native HTTP client unblocks GitHub/Google |
-| 4 | Manual sharing | No | 4-6wk | Export/import JSON (cheap demand test) |
-| 5 | Optional backend | Yes (opt-in, self-hostable) | 10-12wk | OAuth relay, encrypted sync, AI proxy |
-| 6 | Platform | Yes (same backend) | 12+wk | Visual editor, marketplace, trusted creators |
-
-**Total to a usable v1** (through Phase 3): ~30-39 weeks of nights/weekends.
-**Total to a validated sharing model** (through Phase 4): add 4-6 weeks.
-**Total to a platform** (Phase 6): ~1 year+, and only if Phase 4 proves
-people actually want it.
+| Phase | Focus | Backend required? | Key deliverables |
+|---|---|---|---|
+| 0 | Core library | No | Types, gatekeeper, DB adapters, schema |
+| 1 | Web MVP | No | Canvas, Markdown, SQLite, hardcoded modules, weather adapter |
+| 1.5 | Polish | No | Bug fixes, UX |
+| 2 | Query engine | No | Unified pipeline, merge joins, cache, 10+ modules |
+| 3 | Desktop | No | Tauri, file system, native HTTP client unblocks GitHub/Google |
+| 4 | Manual sharing | No | Export/import JSON (cheap demand test) |
+| 5 | Optional backend | Yes (opt-in, self-hostable) | Accounts, encrypted sync, deployed PocketBase — OAuth relay/AI proxy/marketplace API still open |
+| 5.5 | Theme & asset foundation | No | Theme/asset schema, theme switcher, sticker picker, manual theme sharing |
+| 5.6 | Grid & parallax | No | 7 grid styles, configurable backgrounds, parallax layers |
+| 6.1 | Figma-style UI shell | No | Floating toolbar, top-right state toggle, collapsible right panel, zoom controls |
+| 6.2 | Draggable modules | No | Free placement, resize, rotate, multi-select, grouping, context menu |
+| 6.3 | Module properties panel | No | Data source/field mapping/filters/formulas/chart type UI, live preview |
+| 6.4 | Asset store panel | Yes (marketplace API) | Browse/search/install modules, themes, stickers, fonts |
+| 6.5 | Collage & layer management | No | Photo upload/manipulation/filters, layer panel, selection sync |
+| 6.6 | Undo/redo | No | 100-deep grouped history, Cmd+Z/Cmd+Shift+Z |
+| 6.7 | Trusted creator & sandboxing | Yes (marketplace backend) | Application/review flow, sandboxed iframe React import, schema validation |
