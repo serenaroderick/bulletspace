@@ -7,18 +7,31 @@ export interface ThemeColors {
   border: string;
 }
 
-/**
- * Reuses the same shape ideas as Phase 5.6's grid work will need, but that
- * phase renders the actual styles (isometric, hex, circular, etc.) --
- * today only "dot" draws differently on the canvas. A theme carries this
- * as a preference either way, per Phase 5.5's own schema requirement.
- */
 export type ThemeGridStyle = "dot" | "lined" | "blank" | "graph";
+
+/** Bundled together since the Phase 5.6 grid renderer always needs all four to draw a frame. */
+export interface GridConfig {
+  style: ThemeGridStyle;
+  /** px between repeats -- dots/lines/cells/rings, depending on style. */
+  spacing: number;
+  color: string;
+  /** 0-1. */
+  opacity: number;
+}
 
 export type CanvasBackground =
   | { type: "color"; value: string }
   | { type: "gradient"; from: string; to: string; angleDeg: number }
-  | { type: "texture"; textureId: string };
+  | { type: "texture"; textureId: string }
+  | { type: "image"; dataUrl: string };
+
+export interface ParallaxConfig {
+  enabled: boolean;
+  /** Fraction of pan speed the background layer moves at. Default 0.3 per Phase 5.6. */
+  backgroundSpeed: number;
+  /** Fraction of pan speed the photo layer (z-index 3, behind the grid) moves at. Default 0.7. */
+  photoSpeed: number;
+}
 
 export interface ThemeDefinition {
   id: string;
@@ -30,8 +43,9 @@ export interface ThemeDefinition {
   spacingUnit: number;
   cornerRadius: number;
   lineThickness: number;
-  gridStyle: ThemeGridStyle;
+  grid: GridConfig;
   canvasBackground: CanvasBackground;
+  parallax: ParallaxConfig;
 }
 
 export type AssetKind = "sticker" | "icon" | "font";

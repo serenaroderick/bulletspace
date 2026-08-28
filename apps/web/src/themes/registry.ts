@@ -22,8 +22,9 @@ export const defaultLightTheme: ThemeDefinition = {
   spacingUnit: 8,
   cornerRadius: 8,
   lineThickness: 1,
-  gridStyle: "dot",
+  grid: { style: "dot", spacing: 24, color: "#dddddd", opacity: 0.7 },
   canvasBackground: { type: "color", value: "#ffffff" },
+  parallax: { enabled: true, backgroundSpeed: 0.3, photoSpeed: 0.7 },
 };
 
 export const midnightTheme: ThemeDefinition = {
@@ -42,8 +43,9 @@ export const midnightTheme: ThemeDefinition = {
   spacingUnit: 8,
   cornerRadius: 8,
   lineThickness: 1,
-  gridStyle: "dot",
+  grid: { style: "dot", spacing: 24, color: "#33374a", opacity: 0.8 },
   canvasBackground: { type: "color", value: "#12141c" },
+  parallax: { enabled: true, backgroundSpeed: 0.3, photoSpeed: 0.7 },
 };
 
 export const sepiaTheme: ThemeDefinition = {
@@ -62,8 +64,9 @@ export const sepiaTheme: ThemeDefinition = {
   spacingUnit: 8,
   cornerRadius: 4,
   lineThickness: 1,
-  gridStyle: "dot",
+  grid: { style: "dot", spacing: 24, color: "#d8c9a8", opacity: 0.7 },
   canvasBackground: { type: "color", value: "#f4ecd8" },
+  parallax: { enabled: true, backgroundSpeed: 0.3, photoSpeed: 0.7 },
 };
 
 export const builtInThemes: ThemeDefinition[] = [defaultLightTheme, midnightTheme, sepiaTheme];

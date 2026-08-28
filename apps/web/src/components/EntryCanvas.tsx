@@ -1,33 +1,83 @@
-import type { AssetItem, CanvasConfig, CanvasElement, Entry } from "@bulletspace/core";
+import type {
+  AssetItem,
+  CanvasBackground,
+  CanvasConfig,
+  CanvasElement,
+  Entry,
+  GridConfig,
+  ParallaxConfig,
+  ThemeDefinition,
+} from "@bulletspace/core";
 import type Konva from "konva";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { Layer, Shape, Stage, Text } from "react-konva";
 import { db } from "../lib/db";
+import { texturePatterns } from "../themes/textures";
+import { CanvasSettingsPanel } from "./CanvasSettingsPanel";
 import { StickerPicker } from "./StickerPicker";
 
-const GRID_SPACING = 24;
-const DOT_RADIUS = 1.5;
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 3;
 const ZOOM_STEP = 1.05;
 const STICKER_SIZE = 48;
+const BACKGROUND_TILE_SIZE = 64;
 
 function newElementId(): string {
   return crypto.randomUUID();
 }
 
-interface EntryCanvasProps {
-  entry: Entry;
-  onBack: () => void;
-  onConfigChange: (config: CanvasConfig) => void;
+function backgroundCss(background: CanvasBackground): CSSProperties {
+  switch (background.type) {
+    case "color":
+      return { backgroundColor: background.value };
+    case "gradient":
+      return {
+        backgroundImage: `linear-gradient(${background.angleDeg}deg, ${background.from}, ${background.to})`,
+        backgroundSize: `${BACKGROUND_TILE_SIZE}px ${BACKGROUND_TILE_SIZE}px`,
+        backgroundRepeat: "repeat",
+      };
+    case "texture": {
+      const pattern = texturePatterns[background.textureId];
+      return pattern
+        ? { backgroundImage: pattern.backgroundImage, backgroundSize: pattern.backgroundSize, backgroundRepeat: "repeat" }
+        : {};
+    }
+    case "image":
+      return {
+        backgroundImage: `url(${background.dataUrl})`,
+        backgroundSize: `${BACKGROUND_TILE_SIZE * 4}px`,
+        backgroundRepeat: "repeat",
+      };
+  }
 }
 
-export function EntryCanvas({ entry, onBack, onConfigChange }: EntryCanvasProps) {
+interface EntryCanvasProps {
+  entry: Entry;
+  theme: ThemeDefinition;
+  onBack: () => void;
+  onConfigChange: (config: CanvasConfig) => void;
+  onGridChange: (patch: Partial<GridConfig>) => void;
+  onCanvasBackgroundChange: (background: CanvasBackground) => void;
+  onParallaxChange: (patch: Partial<ParallaxConfig>) => void;
+}
+
+export function EntryCanvas({
+  entry,
+  theme,
+  onBack,
+  onConfigChange,
+  onGridChange,
+  onCanvasBackgroundChange,
+  onParallaxChange,
+}: EntryCanvasProps) {
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const backgroundRef = useRef<HTMLDivElement>(null);
+  const photoLayerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [elements, setElements] = useState<CanvasElement[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -44,6 +94,31 @@ export function EntryCanvas({ entry, onBack, onConfigChange }: EntryCanvasProps)
   useEffect(() => {
     db.listCanvasElementsByEntry(entry.id).then(setElements);
   }, [entry.id]);
+
+  // Background moves at parallax.backgroundSpeed of the true pan, the
+  // (currently empty -- Phase 6.5 places photos here) photo layer at
+  // parallax.photoSpeed, and the grid/elements Stage itself at 1x. Both
+  // parallax layers are plain CSS-positioned divs behind the Konva Stage,
+  // not additional Konva Layers -- getting differential speeds right via
+  // Konva's own nested transform composition is easy to get subtly wrong,
+  // while background-position/CSS transform are unambiguous. Updated
+  // imperatively via refs (not React state) so panning stays smooth.
+  const updateParallax = useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const { parallax } = theme;
+    const x = parallax.enabled ? stage.x() * parallax.backgroundSpeed : 0;
+    const y = parallax.enabled ? stage.y() * parallax.backgroundSpeed : 0;
+    if (backgroundRef.current) backgroundRef.current.style.backgroundPosition = `${x}px ${y}px`;
+
+    const photoX = parallax.enabled ? stage.x() * parallax.photoSpeed : 0;
+    const photoY = parallax.enabled ? stage.y() * parallax.photoSpeed : 0;
+    if (photoLayerRef.current) photoLayerRef.current.style.transform = `translate(${photoX}px, ${photoY}px)`;
+  }, [theme]);
+
+  useEffect(() => {
+    updateParallax();
+  }, [updateParallax]);
 
   const handlePickSticker = useCallback(
     async (sticker: AssetItem) => {
@@ -86,6 +161,15 @@ export function EntryCanvas({ entry, onBack, onConfigChange }: EntryCanvasProps)
     });
   }, [entry.canvasConfig.gridType, onConfigChange]);
 
+  const handleDragMove = useCallback(() => {
+    updateParallax();
+  }, [updateParallax]);
+
+  const handleDragEnd = useCallback(() => {
+    updateParallax();
+    persistConfig();
+  }, [updateParallax, persistConfig]);
+
   const handleWheel = useCallback(
     (event: Konva.KonvaEventObject<WheelEvent>) => {
       event.evt.preventDefault();
@@ -113,9 +197,10 @@ export function EntryCanvas({ entry, onBack, onConfigChange }: EntryCanvasProps)
         y: pointer.y - pointInWorld.y * newScale,
       });
       stage.batchDraw();
+      updateParallax();
       persistConfig();
     },
-    [persistConfig],
+    [persistConfig, updateParallax],
   );
 
   return (
@@ -128,12 +213,28 @@ export function EntryCanvas({ entry, onBack, onConfigChange }: EntryCanvasProps)
         <button type="button" onClick={() => setPickerOpen((open) => !open)}>
           Add Sticker
         </button>
+        <button type="button" onClick={() => setSettingsOpen((open) => !open)}>
+          Canvas Settings
+        </button>
       </div>
       {pickerOpen && <StickerPicker onPick={handlePickSticker} onClose={() => setPickerOpen(false)} />}
+      {settingsOpen && (
+        <CanvasSettingsPanel
+          grid={theme.grid}
+          canvasBackground={theme.canvasBackground}
+          parallax={theme.parallax}
+          onGridChange={onGridChange}
+          onCanvasBackgroundChange={onCanvasBackgroundChange}
+          onParallaxChange={onParallaxChange}
+        />
+      )}
       <div className="entry-canvas-surface" ref={containerRef}>
+        <div ref={backgroundRef} className="entry-canvas-background" style={backgroundCss(theme.canvasBackground)} />
+        <div ref={photoLayerRef} className="entry-canvas-photo-layer" />
         {size.width > 0 && size.height > 0 && (
           <Stage
             ref={stageRef}
+            className="entry-canvas-stage"
             width={size.width}
             height={size.height}
             draggable
@@ -142,10 +243,11 @@ export function EntryCanvas({ entry, onBack, onConfigChange }: EntryCanvasProps)
             scaleX={entry.canvasConfig.zoom}
             scaleY={entry.canvasConfig.zoom}
             onWheel={handleWheel}
-            onDragEnd={persistConfig}
+            onDragMove={handleDragMove}
+            onDragEnd={handleDragEnd}
           >
             <Layer listening={false}>
-              <DotGrid stageRef={stageRef} width={size.width} height={size.height} />
+              <Grid stageRef={stageRef} width={size.width} height={size.height} config={theme.grid} />
             </Layer>
             <Layer listening={false}>
               {elements.map((element) =>
@@ -173,38 +275,75 @@ export function EntryCanvas({ entry, onBack, onConfigChange }: EntryCanvasProps)
   );
 }
 
-function DotGrid({
+function Grid({
   stageRef,
   width,
   height,
+  config,
 }: {
   stageRef: React.RefObject<Konva.Stage>;
   width: number;
   height: number;
+  config: GridConfig;
 }) {
+  if (config.style === "blank") return null;
+
   return (
     <Shape
       listening={false}
-      fill="#8886"
+      opacity={config.opacity}
       sceneFunc={(ctx, shape) => {
         const stage = stageRef.current;
         const scale = stage?.scaleX() ?? 1;
         const stageX = stage?.x() ?? 0;
         const stageY = stage?.y() ?? 0;
+        const spacing = config.spacing;
 
-        const startX = Math.floor(-stageX / scale / GRID_SPACING) * GRID_SPACING;
-        const endX = startX + width / scale + GRID_SPACING;
-        const startY = Math.floor(-stageY / scale / GRID_SPACING) * GRID_SPACING;
-        const endY = startY + height / scale + GRID_SPACING;
+        const startX = Math.floor(-stageX / scale / spacing) * spacing;
+        const endX = startX + width / scale + spacing;
+        const startY = Math.floor(-stageY / scale / spacing) * spacing;
+        const endY = startY + height / scale + spacing;
 
-        ctx.beginPath();
-        for (let x = startX; x <= endX; x += GRID_SPACING) {
-          for (let y = startY; y <= endY; y += GRID_SPACING) {
-            ctx.moveTo(x + DOT_RADIUS, y);
-            ctx.arc(x, y, DOT_RADIUS, 0, Math.PI * 2);
+        ctx.fillStyle = config.color;
+        ctx.strokeStyle = config.color;
+        ctx.lineWidth = 1 / scale;
+
+        switch (config.style) {
+          case "dot": {
+            const radius = 1.5;
+            ctx.beginPath();
+            for (let x = startX; x <= endX; x += spacing) {
+              for (let y = startY; y <= endY; y += spacing) {
+                ctx.moveTo(x + radius, y);
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+              }
+            }
+            ctx.fill();
+            break;
+          }
+          case "lined": {
+            ctx.beginPath();
+            for (let y = startY; y <= endY; y += spacing) {
+              ctx.moveTo(startX, y);
+              ctx.lineTo(endX, y);
+            }
+            ctx.stroke();
+            break;
+          }
+          case "graph": {
+            ctx.beginPath();
+            for (let y = startY; y <= endY; y += spacing) {
+              ctx.moveTo(startX, y);
+              ctx.lineTo(endX, y);
+            }
+            for (let x = startX; x <= endX; x += spacing) {
+              ctx.moveTo(x, startY);
+              ctx.lineTo(x, endY);
+            }
+            ctx.stroke();
+            break;
           }
         }
-        ctx.fillStrokeShape(shape);
       }}
     />
   );

@@ -81,8 +81,9 @@ function makeThemeDefinition(overrides: Partial<ThemeDefinition> = {}): ThemeDef
     spacingUnit: 8,
     cornerRadius: 6,
     lineThickness: 1,
-    gridStyle: "dot",
+    grid: { style: "dot", spacing: 24, color: "#dddddd", opacity: 0.7 },
     canvasBackground: { type: "color", value: "#ffffff" },
+    parallax: { enabled: true, backgroundSpeed: 0.3, photoSpeed: 0.7 },
     ...overrides,
   };
 }

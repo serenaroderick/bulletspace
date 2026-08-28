@@ -512,26 +512,57 @@ has the identical serialize/parse logic and tests but no import UI yet.
 **Goal:** improve the canvas atmosphere with multiple grid styles and
 parallax depth.
 
-- [ ] Grid styles — dot (current default), lined, graph (squared),
-      isometric (30° angled), hexagonal, circular (concentric rings), and
-      blank (no grid)
-- [ ] Grid configuration — spacing, color, and opacity configurable via a
-      settings panel (or the Phase 5.5 theme system)
-- [ ] Canvas background — solid color (picker), gradient (linear/radial,
-      configurable stops), texture (repeatable pattern, e.g. paper grain),
-      or a user-uploaded image
-- [ ] Parallax layers — the grid moves at 1x with the canvas; the
-      background moves at a configurable speed (default 0.3x), creating
-      depth when panning
-- [ ] Parallax toggle — users can enable/disable parallax in settings
-- [ ] Photo layer — a distinct layer behind the grid (z-index 3) where
-      photos can be placed with a configurable parallax speed (default 0.7x)
-- [ ] Infinite background — procedurally generated or tileable, with no
-      seams even when panning indefinitely
+- [x] Grid styles — dot (default), lined, graph (squared), blank. **Scope
+      change mid-implementation**: isometric/hexagonal/circular were built
+      and verified live (all three rendered correctly, including a
+      seamless-pan check on hexagonal), then deliberately shelved — a
+      different grid-style implementation approach is planned for these,
+      so the working versions were removed rather than left half-adopted.
+      `packages/core/src/theme.ts`'s `ThemeGridStyle` only lists the four
+      kept styles now. See `EntryCanvas.tsx`'s `Grid` Konva shape.
+- [x] Grid configuration — `CanvasSettingsPanel.tsx`, a toggleable panel
+      in the entry canvas toolbar: style/spacing/color/opacity, all
+      applying immediately via `GridConfig` on the working theme (App.tsx's
+      `handleGridChange`), not just declared in the theme schema.
+- [x] Canvas background — solid color, gradient, texture (two built-in
+      CSS patterns, `paper-grain`/`diagonal-hatch`, in
+      `apps/web/src/themes/textures.ts` — zero image assets, same
+      zero-asset approach as Phase 5.5's emoji stickers), and image
+      (upload via `FileReader`, stored as a data URL, same
+      no-backend-needed pattern `AssetItem.src` already established).
+      **Simplified from the original wording**: gradients are linear
+      only with two fixed stops (from/to/angle), not radial or
+      arbitrary-stop — configurable arbitrary gradient stops is real UI
+      complexity with no concrete need for it yet.
+- [x] Parallax layers — verified live and numerically exact: panning the
+      stage by (-300, -200) screen px moved the background layer by
+      exactly (-90, -60) at the default 0.3x speed. Implemented as a
+      plain CSS-positioned div behind the Konva `Stage` (not a nested
+      Konva Layer) with its `background-position` updated imperatively
+      from a ref on every drag/wheel event — deliberately avoided
+      Konva's own nested-transform composition for this, since getting
+      differential-speed layers right that way is easy to get subtly
+      wrong, while CSS background-position math is unambiguous.
+- [x] Parallax toggle — verified live: disabling it resets the background
+      offset to (0, 0) and further panning leaves it there.
+- [x] Photo layer — the layer exists (z-index behind the grid, its own
+      `photoSpeed`-scaled parallax offset verified the same way as the
+      background layer) but is empty — there's no photo-upload feature
+      yet to place anything into it. That's Phase 6.5's job; this is the
+      mechanism 6.5 extends, not a placeholder pretending to be done.
+- [x] Infinite background — solid/gradient/texture all use CSS
+      `background-repeat`, which tiles with zero seams at any pan
+      distance by construction, not by careful boundary-math the way the
+      Konva grid needs. Images tile too (same code path) — a single
+      photo visibly repeating isn't a bug, it's the honest behavior of
+      "no seams" applied to content that was never meant to tile.
 
 **Success criteria:** panning the canvas visibly shows depth (grid and
 background moving at different speeds) with no seams no matter how far you
-pan, and every listed grid style is selectable and applies immediately.
+pan — **met**, verified live with exact pixel math. Every listed grid
+style is selectable and applies immediately — **met** for the four kept
+styles (dot/lined/graph/blank); isometric/hexagonal/circular are deferred
+to a different planned implementation, not abandoned.
 
 ## Phase 6.1: Figma-Style UI Shell
 

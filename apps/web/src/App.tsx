@@ -1,4 +1,14 @@
-import type { CanvasConfig, Entry, Journal, ModuleDefinition, NetworkState, ThemeDefinition } from "@bulletspace/core";
+import type {
+  CanvasBackground,
+  CanvasConfig,
+  Entry,
+  GridConfig,
+  Journal,
+  ModuleDefinition,
+  NetworkState,
+  ParallaxConfig,
+  ThemeDefinition,
+} from "@bulletspace/core";
 import { type ChangeEvent, type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
 import { AccountPanel } from "./components/AccountPanel";
@@ -47,7 +57,7 @@ export default function App() {
   const [importError, setImportError] = useState<string | null>(null);
   const [sharedModules, setSharedModules] = useState<ModuleDefinition[]>([]);
   const [themes, setThemes] = useState<ThemeDefinition[]>([defaultLightTheme]);
-  const [activeThemeId, setActiveThemeId] = useState(defaultLightTheme.id);
+  const [activeTheme, setActiveTheme] = useState<ThemeDefinition>(defaultLightTheme);
   const importInputRef = useRef<HTMLInputElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
@@ -67,17 +77,45 @@ export default function App() {
   }, []);
 
   const handleThemeChange = useCallback((theme: ThemeDefinition) => {
-    setActiveThemeId(theme.id);
+    setActiveTheme(theme);
     saveActiveThemeId(theme.id);
     applyThemeToDocument(theme);
   }, []);
 
   const handleThemesChanged = useCallback(async () => {
     const all = await loadThemes();
-    if (!all.some((theme) => theme.id === activeThemeId)) {
+    if (!all.some((theme) => theme.id === activeTheme.id)) {
       handleThemeChange(defaultLightTheme);
     }
-  }, [loadThemes, activeThemeId, handleThemeChange]);
+  }, [loadThemes, activeTheme.id, handleThemeChange]);
+
+  // Grid/background/parallax settings edit the *working* theme in place --
+  // a live draft layered on top of whichever named theme was selected,
+  // not persisted as a saved theme until the user explicitly shares/saves
+  // it (ThemeSharePanel's existing export flow already covers that).
+  const handleGridChange = useCallback((patch: Partial<GridConfig>) => {
+    setActiveTheme((prev) => {
+      const next = { ...prev, grid: { ...prev.grid, ...patch } };
+      applyThemeToDocument(next);
+      return next;
+    });
+  }, []);
+
+  const handleCanvasBackgroundChange = useCallback((background: CanvasBackground) => {
+    setActiveTheme((prev) => {
+      const next = { ...prev, canvasBackground: background };
+      applyThemeToDocument(next);
+      return next;
+    });
+  }, []);
+
+  const handleParallaxChange = useCallback((patch: Partial<ParallaxConfig>) => {
+    setActiveTheme((prev) => {
+      const next = { ...prev, parallax: { ...prev.parallax, ...patch } };
+      applyThemeToDocument(next);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -89,9 +127,9 @@ export default function App() {
 
       const allThemes = await loadThemes();
       const persistedId = loadActiveThemeId();
-      const activeTheme = allThemes.find((theme) => theme.id === persistedId) ?? defaultLightTheme;
-      setActiveThemeId(activeTheme.id);
-      applyThemeToDocument(activeTheme);
+      const persistedTheme = allThemes.find((theme) => theme.id === persistedId) ?? defaultLightTheme;
+      setActiveTheme(persistedTheme);
+      applyThemeToDocument(persistedTheme);
 
       setReady(true);
     })();
@@ -279,8 +317,12 @@ export default function App() {
     return (
       <EntryCanvas
         entry={openEntry}
+        theme={activeTheme}
         onBack={() => setOpenEntryId(null)}
         onConfigChange={(config) => handleEntryCanvasConfigChange(openEntry.id, config)}
+        onGridChange={handleGridChange}
+        onCanvasBackgroundChange={handleCanvasBackgroundChange}
+        onParallaxChange={handleParallaxChange}
       />
     );
   }
@@ -320,7 +362,7 @@ export default function App() {
             aria-hidden="true"
             onChange={handleImportFileChange}
           />
-          <ThemeSwitcher themes={themes} activeThemeId={activeThemeId} onChange={handleThemeChange} />
+          <ThemeSwitcher themes={themes} activeThemeId={activeTheme.id} onChange={handleThemeChange} />
           <NetworkToggle state={networkState} onChange={handleNetworkStateChange} />
           <AccountPanel networkState={networkState} journal={journal} entries={entries} onPulled={handleSyncPulled} />
         </div>
@@ -342,11 +384,7 @@ export default function App() {
             sharedModules={sharedModules}
             onSharedModulesChange={loadSharedModules}
           />
-          <ThemeSharePanel
-            themes={themes}
-            activeTheme={themes.find((theme) => theme.id === activeThemeId) ?? defaultLightTheme}
-            onThemesChange={handleThemesChanged}
-          />
+          <ThemeSharePanel themes={themes} activeTheme={activeTheme} onThemesChange={handleThemesChanged} />
         </div>
 
         <form className="entry-form" onSubmit={handleCreateEntry}>
