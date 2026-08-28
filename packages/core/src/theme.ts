@@ -7,32 +7,13 @@ export interface ThemeColors {
   border: string;
 }
 
-export type ThemeGridStyle = "dot" | "lined" | "blank" | "graph";
-
-/** Bundled together since the Phase 5.6 grid renderer always needs all four to draw a frame. */
-export interface GridConfig {
-  style: ThemeGridStyle;
-  /** px between repeats -- dots/lines/cells/rings, depending on style. */
-  spacing: number;
-  color: string;
-  /** 0-1. */
-  opacity: number;
-}
-
-export type CanvasBackground =
-  | { type: "color"; value: string }
-  | { type: "gradient"; from: string; to: string; angleDeg: number }
-  | { type: "texture"; textureId: string }
-  | { type: "image"; dataUrl: string };
-
-export interface ParallaxConfig {
-  enabled: boolean;
-  /** Fraction of pan speed the background layer moves at. Default 0.3 per Phase 5.6. */
-  backgroundSpeed: number;
-  /** Fraction of pan speed the photo layer (z-index 3, behind the grid) moves at. Default 0.7. */
-  photoSpeed: number;
-}
-
+/**
+ * Grid/canvas-background/parallax deliberately do NOT live here --
+ * Phase 6.1's per-entry bounded canvas pages own those (see
+ * CanvasConfig in types.ts), so different pages can look different from
+ * each other independent of the app's color theme. Theme stays UI-chrome
+ * styling: colors, fonts, spacing, corner radii, line thickness.
+ */
 export interface ThemeDefinition {
   id: string;
   name: string;
@@ -43,9 +24,6 @@ export interface ThemeDefinition {
   spacingUnit: number;
   cornerRadius: number;
   lineThickness: number;
-  grid: GridConfig;
-  canvasBackground: CanvasBackground;
-  parallax: ParallaxConfig;
 }
 
 export type AssetKind = "sticker" | "icon" | "font";

@@ -10,29 +10,6 @@ export function serializeThemeShare(theme: ThemeDefinition): ThemeShareFile {
   return { version: 1, kind: "theme", theme };
 }
 
-const VALID_GRID_STYLES = ["dot", "lined", "blank", "graph"];
-
-function isValidGridConfig(value: unknown): boolean {
-  if (typeof value !== "object" || value === null) return false;
-  const grid = value as Record<string, unknown>;
-  return (
-    VALID_GRID_STYLES.includes(grid.style as string) &&
-    typeof grid.spacing === "number" &&
-    typeof grid.color === "string" &&
-    typeof grid.opacity === "number"
-  );
-}
-
-function isValidParallaxConfig(value: unknown): boolean {
-  if (typeof value !== "object" || value === null) return false;
-  const parallax = value as Record<string, unknown>;
-  return (
-    typeof parallax.enabled === "boolean" &&
-    typeof parallax.backgroundSpeed === "number" &&
-    typeof parallax.photoSpeed === "number"
-  );
-}
-
 function isValidThemeDefinition(value: unknown): value is ThemeDefinition {
   if (typeof value !== "object" || value === null) return false;
   const theme = value as Record<string, unknown>;
@@ -52,11 +29,7 @@ function isValidThemeDefinition(value: unknown): value is ThemeDefinition {
     typeof theme.fontFamily === "string" &&
     typeof theme.spacingUnit === "number" &&
     typeof theme.cornerRadius === "number" &&
-    typeof theme.lineThickness === "number" &&
-    isValidGridConfig(theme.grid) &&
-    typeof theme.canvasBackground === "object" &&
-    theme.canvasBackground !== null &&
-    isValidParallaxConfig(theme.parallax)
+    typeof theme.lineThickness === "number"
   );
 }
 

@@ -1,4 +1,4 @@
-import type { CanvasBackground, GridConfig, ParallaxConfig, ThemeGridStyle } from "@bulletspace/core";
+import type { CanvasBackground, GridConfig, GridStyle, ParallaxConfig } from "@bulletspace/core";
 import type { ChangeEvent } from "react";
 import { builtInTextureIds } from "../themes/textures";
 
@@ -11,14 +11,15 @@ interface CanvasSettingsPanelProps {
   onParallaxChange: (patch: Partial<ParallaxConfig>) => void;
 }
 
-const GRID_STYLES: ThemeGridStyle[] = ["dot", "lined", "graph", "blank"];
+const GRID_STYLES: GridStyle[] = ["dot", "lined", "graph", "blank"];
 
 /**
- * Live settings for the currently open entry's canvas -- grid style/
- * spacing/color/opacity, background type/value, and parallax. Edits the
- * working theme in place (App.tsx's handleGridChange/etc.), not a saved
- * theme -- use ThemeSharePanel's Share button to turn a tweak into a
- * theme others can install.
+ * Live settings for the currently open entry's bounded canvas page --
+ * grid style/spacing/color/opacity, background type/value, and parallax.
+ * Edits `entry.canvasConfig` in place (EntryCanvas's handleGridChange/
+ * etc.), persisted per-entry -- these deliberately live on the page, not
+ * on ThemeDefinition, so different pages can look different from each
+ * other independent of the app's color theme.
  */
 export function CanvasSettingsPanel({
   grid,
@@ -62,7 +63,7 @@ export function CanvasSettingsPanel({
         <select
           id="grid-style"
           value={grid.style}
-          onChange={(event) => onGridChange({ style: event.target.value as ThemeGridStyle })}
+          onChange={(event) => onGridChange({ style: event.target.value as GridStyle })}
         >
           {GRID_STYLES.map((style) => (
             <option key={style} value={style}>

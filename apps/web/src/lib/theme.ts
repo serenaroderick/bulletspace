@@ -42,18 +42,4 @@ export function applyThemeToDocument(theme: ThemeDefinition): void {
   root.setProperty("--bs-spacing-unit", `${theme.spacingUnit}px`);
   root.setProperty("--bs-corner-radius", `${theme.cornerRadius}px`);
   root.setProperty("--bs-line-thickness", `${theme.lineThickness}px`);
-
-  const background = theme.canvasBackground;
-  if (background.type === "color") {
-    root.setProperty("--bs-canvas-background", background.value);
-  } else if (background.type === "gradient") {
-    root.setProperty(
-      "--bs-canvas-background",
-      `linear-gradient(${background.angleDeg}deg, ${background.from}, ${background.to})`,
-    );
-  } else {
-    // "texture" has no asset pipeline yet (Phase 5.6 scope) -- fall back
-    // to the theme's own background color rather than leaving a stale var.
-    root.setProperty("--bs-canvas-background", theme.colors.background);
-  }
 }

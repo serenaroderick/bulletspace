@@ -8,7 +8,16 @@ const entries = [
     journalId: "j1",
     title: "Entry",
     content: "hello",
-    canvasConfig: { gridType: "dot" as const, zoom: 1, scrollX: 0, scrollY: 0 },
+    canvasConfig: {
+      width: 4000,
+      height: 4000,
+      zoom: 1,
+      scrollX: 0,
+      scrollY: 0,
+      grid: { style: "dot" as const, spacing: 24, color: "#dddddd", opacity: 0.7 },
+      canvasBackground: { type: "color" as const, value: "#ffffff" },
+      parallax: { enabled: true, backgroundSpeed: 0.3, photoSpeed: 0.7 },
+    },
     mood: 5,
     energy: null,
     focus: null,
@@ -58,7 +67,7 @@ describe("serializeJournalExport / parseJournalExport", () => {
     const malformed = {
       version: 1,
       journal,
-      entries: [{ ...entries[0], canvasConfig: { gridType: "dot" } }],
+      entries: [{ ...entries[0], canvasConfig: { width: 4000, height: 4000 } }],
     };
     expect(() => parseJournalExport(JSON.stringify(malformed))).toThrow(
       "Entry at index 0 is missing required fields or has the wrong shape.",

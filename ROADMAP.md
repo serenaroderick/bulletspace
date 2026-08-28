@@ -568,27 +568,90 @@ to a different planned implementation, not abandoned.
 
 **Goal:** replace the current UI with a Figma/Adobe-like interface.
 
+**Scope addition mid-implementation**: before writing code, the "does the
+Figma shell wrap the whole app or just the per-entry canvas" question got
+raised, which led to a specific design for *bounded canvas pages with
+pagination* (Figma's own "pages" model — bounded, not infinite, navigated
+like a physical journal). This became the real foundation the rest of 6.1
+sits on, so it's documented here as the first set of items, ahead of the
+original toolbar/panel DoD below.
+
+- [x] Bounded canvas pages, per entry (Option A: one page per entry —
+      simplest mapping onto the existing data model, matching the design's
+      own recommendation). `CanvasConfig` (in `types.ts`) now carries
+      `width`/`height` plus the grid/background/parallax config that used
+      to live on `ThemeDefinition` — moved because different pages should
+      be able to look different from each other independent of the app's
+      color theme, the same way pages in a physical journal do. Panning
+      is genuinely clamped, not just visually implied: verified live by
+      dragging ~1900px past the page's corner and confirming the page
+      stayed anchored at the exact position that keeps it fully
+      reachable, matching the clamp math
+      (`min(0, viewport - page*scale)`/`max(...)`) exactly — screenshotted
+      before and after.
+- [x] Page size presets — `apps/web/src/lib/canvasPage.ts`: Freeform
+      (4000×4000, default for new pages), Bullet Journal Spread
+      (1200×800), A1/A2/A3. No settings-panel picker wired to switch an
+      existing page's preset yet (only the default new-page size is
+      live) — Custom sizing already works implicitly since `width`/
+      `height` are freely editable data, just not yet exposed as a
+      preset dropdown.
+- [x] Pagination — Previous/Next arrows and a "Page X of Y" indicator in
+      the canvas toolbar, navigating the same chronologically-sorted
+      entry list the dashboard already uses (no separate page-ordering
+      field needed). "New Page" creates a fresh entry with a default
+      page and opens it. "Duplicate Page" clones the current entry's
+      full `canvasConfig` plus every sticker on it into a new entry.
+      Verified live: created a new page, saw it correctly become "Page 1
+      of 2" (newest-first sort, matching the existing entry-list
+      convention), Previous correctly disabled on it since nothing is
+      newer.
+- [x] Page persistence — `canvasConfig` (size, grid, background,
+      parallax, scroll/zoom) already went through the existing
+      `db.updateEntry`/`onConfigChange` path Phase 1 built; no new
+      persistence mechanism needed, confirming Option A's "aligns with
+      the current data model" premise.
+- [ ] Page title editing from the toolbar — currently shows the entry's
+      title read-only; renaming still requires the markdown editor view.
+- [ ] Page Settings UI (change an existing page's size preset, not just
+      accept the default at creation) — not built yet.
+
+**Original toolbar/panel DoD, applying to the per-entry canvas view specifically**
+(the dashboard entry list stays as the index/navigation view, unaffected —
+see the scope discussion above):
+
 - [ ] Floating left toolbar with icons for: Select (default click/drag
       mode), Add Module (opens the module palette), Add Image, Add Sticker
       (opens the Phase 5.5 sticker picker), Add Text, Draw (optional,
       freehand — only if built), Asset Store (opens the Phase 6.4 panel),
-      Account Settings (profile, sync, passphrase)
+      Account Settings (profile, sync, passphrase). **Currently a
+      horizontal top toolbar, not yet restyled into a floating left
+      vertical one** — Add Sticker and Canvas Settings are real and wired;
+      Select/Add Module/Add Image/Add Text/Asset Store/Account Settings
+      either have nothing to do yet (later phases) or aren't relocated
+      here yet.
 - [ ] Toolbar interaction — clicking an icon opens its panel or triggers
       its action; the toolbar itself is collapsible
 - [ ] Top-right state toggle — the existing Local/Connected/AI tri-state
       toggle moves from its current location to the top-right corner,
-      restyled to match the Figma aesthetic
+      restyled to match the Figma aesthetic. **Not done** — it's still
+      only reachable from the dashboard header, meaning there's currently
+      no way to change network mode while inside the canvas view.
 - [ ] Collapsible right panel showing one of: Properties (Phase 6.3),
       Layers (Phase 6.5), or Asset Store (Phase 6.4)
-- [ ] Zoom controls — in/out buttons plus a zoom percentage indicator in
-      the top bar or toolbar
-- [ ] Consistent styling — the new shell uses the active theme's colors
-      and fonts (Phase 5.5)
+- [x] Zoom controls — in/out buttons plus a live percentage indicator in
+      the canvas toolbar, wired to real zoom (clamped 10%-300%, same
+      clamp-to-page-bounds logic as drag/wheel zoom). Verified live.
+- [x] Consistent styling — the canvas toolbar/settings panel use the
+      active theme's CSS variables (border/radius/line-thickness/muted
+      text), same mechanism Phase 5.5 built.
 
 **Success criteria:** the dashboard looks and behaves like a Figma-style
 canvas app — a floating toolbar drives every add/select action, the
 tri-state toggle lives top-right, and the collapsible right panel is ready
-to host Properties/Layers/Asset Store content from later phases.
+to host Properties/Layers/Asset Store content from later phases. **Partially
+met**: the bounded-page-with-pagination foundation is done and verified
+live; the floating-toolbar/top-right-toggle/right-panel restyling is not.
 
 ## Phase 6.2: Draggable, Overlapping Modules
 

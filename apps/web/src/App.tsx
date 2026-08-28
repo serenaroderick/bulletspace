@@ -1,14 +1,4 @@
-import type {
-  CanvasBackground,
-  CanvasConfig,
-  Entry,
-  GridConfig,
-  Journal,
-  ModuleDefinition,
-  NetworkState,
-  ParallaxConfig,
-  ThemeDefinition,
-} from "@bulletspace/core";
+import type { CanvasConfig, Entry, Journal, ModuleDefinition, NetworkState, ThemeDefinition } from "@bulletspace/core";
 import { type ChangeEvent, type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
 import { AccountPanel } from "./components/AccountPanel";
@@ -26,6 +16,7 @@ import { NetworkToggle } from "./components/NetworkToggle";
 import { SharedModulesPanel } from "./components/SharedModulesPanel";
 import { ThemeSharePanel } from "./components/ThemeSharePanel";
 import { ThemeSwitcher } from "./components/ThemeSwitcher";
+import { defaultCanvasConfig } from "./lib/canvasPage";
 import { db, ensureDbInitialized } from "./lib/db";
 import { exportJournal } from "./lib/exportFile";
 import { gatekeeper } from "./lib/gatekeeper";
@@ -89,34 +80,6 @@ export default function App() {
     }
   }, [loadThemes, activeTheme.id, handleThemeChange]);
 
-  // Grid/background/parallax settings edit the *working* theme in place --
-  // a live draft layered on top of whichever named theme was selected,
-  // not persisted as a saved theme until the user explicitly shares/saves
-  // it (ThemeSharePanel's existing export flow already covers that).
-  const handleGridChange = useCallback((patch: Partial<GridConfig>) => {
-    setActiveTheme((prev) => {
-      const next = { ...prev, grid: { ...prev.grid, ...patch } };
-      applyThemeToDocument(next);
-      return next;
-    });
-  }, []);
-
-  const handleCanvasBackgroundChange = useCallback((background: CanvasBackground) => {
-    setActiveTheme((prev) => {
-      const next = { ...prev, canvasBackground: background };
-      applyThemeToDocument(next);
-      return next;
-    });
-  }, []);
-
-  const handleParallaxChange = useCallback((patch: Partial<ParallaxConfig>) => {
-    setActiveTheme((prev) => {
-      const next = { ...prev, parallax: { ...prev.parallax, ...patch } };
-      applyThemeToDocument(next);
-      return next;
-    });
-  }, []);
-
   useEffect(() => {
     (async () => {
       await ensureDbInitialized();
@@ -146,7 +109,7 @@ export default function App() {
         journalId: journal.id,
         title: draftTitle.trim(),
         content: draftContent,
-        canvasConfig: { gridType: "dot", zoom: 1, scrollX: 0, scrollY: 0 },
+        canvasConfig: defaultCanvasConfig(),
         mood: clampRating(draftMood),
         energy: clampRating(draftEnergy),
         focus: clampRating(draftFocus),
@@ -187,6 +150,62 @@ export default function App() {
     setEntries((prev) => prev.map((entry) => (entry.id === entryId ? { ...entry, canvasConfig: config } : entry)));
   }, []);
 
+  // Phase 6.1 pagination (Option A: one bounded canvas page per entry) --
+  // "New Page" is just a new entry with a fresh page; "Duplicate Page"
+  // clones the current entry's canvasConfig and every sticker on it.
+  const handleNewPage = useCallback(async () => {
+    if (!journal) return;
+    const now = Date.now();
+    const created: Entry = {
+      id: newId(),
+      journalId: journal.id,
+      title: new Date(now).toLocaleDateString(),
+      content: "",
+      canvasConfig: defaultCanvasConfig(),
+      mood: null,
+      energy: null,
+      focus: null,
+      tags: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+    await db.createEntry(created);
+    setEntries((prev) => [created, ...prev].sort((a, b) => b.createdAt - a.createdAt));
+    setOpenEntryId(created.id);
+  }, [journal]);
+
+  const handleDuplicatePage = useCallback(
+    async (sourceEntryId: string) => {
+      const source = entries.find((entry) => entry.id === sourceEntryId);
+      if (!source || !journal) return;
+
+      const now = Date.now();
+      const created: Entry = {
+        ...source,
+        id: newId(),
+        title: `${source.title} (copy)`,
+        canvasConfig: {
+          ...source.canvasConfig,
+          grid: { ...source.canvasConfig.grid },
+          canvasBackground: { ...source.canvasConfig.canvasBackground },
+          parallax: { ...source.canvasConfig.parallax },
+        },
+        createdAt: now,
+        updatedAt: now,
+      };
+      await db.createEntry(created);
+
+      const sourceElements = await db.listCanvasElementsByEntry(sourceEntryId);
+      for (const element of sourceElements) {
+        await db.createCanvasElement({ ...element, id: newId(), entryId: created.id });
+      }
+
+      setEntries((prev) => [created, ...prev].sort((a, b) => b.createdAt - a.createdAt));
+      setOpenEntryId(created.id);
+    },
+    [entries, journal],
+  );
+
   const handleSaveEntry = useCallback(
     async (entryId: string, updates: { title: string; content: string }) => {
       const now = Date.now();
@@ -214,7 +233,7 @@ export default function App() {
         journalId: journal.id,
         title: title.trim(),
         content: "",
-        canvasConfig: { gridType: "dot", zoom: 1, scrollX: 0, scrollY: 0 },
+        canvasConfig: defaultCanvasConfig(),
         mood: null,
         energy: null,
         focus: null,
@@ -312,17 +331,21 @@ export default function App() {
   }
 
   const openEntry = openEntryId ? (entries.find((entry) => entry.id === openEntryId) ?? null) : null;
+  const openEntryIndex = openEntry ? entries.findIndex((entry) => entry.id === openEntry.id) : -1;
 
   if (openEntry) {
     return (
       <EntryCanvas
         entry={openEntry}
-        theme={activeTheme}
+        pageIndex={openEntryIndex}
+        pageCount={entries.length}
+        previousEntryId={openEntryIndex > 0 ? entries[openEntryIndex - 1].id : null}
+        nextEntryId={openEntryIndex >= 0 && openEntryIndex < entries.length - 1 ? entries[openEntryIndex + 1].id : null}
         onBack={() => setOpenEntryId(null)}
         onConfigChange={(config) => handleEntryCanvasConfigChange(openEntry.id, config)}
-        onGridChange={handleGridChange}
-        onCanvasBackgroundChange={handleCanvasBackgroundChange}
-        onParallaxChange={handleParallaxChange}
+        onNavigate={setOpenEntryId}
+        onNewPage={handleNewPage}
+        onDuplicatePage={() => handleDuplicatePage(openEntry.id)}
       />
     );
   }

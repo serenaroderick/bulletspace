@@ -1,26 +1,18 @@
-import type {
-  AssetItem,
-  CanvasBackground,
-  CanvasConfig,
-  CanvasElement,
-  Entry,
-  GridConfig,
-  ParallaxConfig,
-  ThemeDefinition,
-} from "@bulletspace/core";
+import type { AssetItem, CanvasBackground, CanvasConfig, CanvasElement, Entry, GridConfig, ParallaxConfig } from "@bulletspace/core";
 import type Konva from "konva";
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
-import { Layer, Shape, Stage, Text } from "react-konva";
+import { Layer, Rect, Shape, Stage, Text } from "react-konva";
 import { db } from "../lib/db";
 import { texturePatterns } from "../themes/textures";
 import { CanvasSettingsPanel } from "./CanvasSettingsPanel";
 import { StickerPicker } from "./StickerPicker";
 
-const MIN_ZOOM = 0.25;
+const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 3;
 const ZOOM_STEP = 1.05;
 const STICKER_SIZE = 48;
 const BACKGROUND_TILE_SIZE = 64;
+const VOID_COLOR = "#d9d9dc";
 
 function newElementId(): string {
   return crypto.randomUUID();
@@ -51,24 +43,50 @@ function backgroundCss(background: CanvasBackground): CSSProperties {
   }
 }
 
+function clampStagePosition(
+  pos: { x: number; y: number },
+  scale: number,
+  pageWidth: number,
+  pageHeight: number,
+  viewportWidth: number,
+  viewportHeight: number,
+): { x: number; y: number } {
+  const scaledWidth = pageWidth * scale;
+  const scaledHeight = pageHeight * scale;
+  const minX = Math.min(0, viewportWidth - scaledWidth);
+  const maxX = Math.max(0, viewportWidth - scaledWidth);
+  const minY = Math.min(0, viewportHeight - scaledHeight);
+  const maxY = Math.max(0, viewportHeight - scaledHeight);
+  return {
+    x: Math.min(maxX, Math.max(minX, pos.x)),
+    y: Math.min(maxY, Math.max(minY, pos.y)),
+  };
+}
+
 interface EntryCanvasProps {
   entry: Entry;
-  theme: ThemeDefinition;
+  pageIndex: number;
+  pageCount: number;
+  previousEntryId: string | null;
+  nextEntryId: string | null;
   onBack: () => void;
   onConfigChange: (config: CanvasConfig) => void;
-  onGridChange: (patch: Partial<GridConfig>) => void;
-  onCanvasBackgroundChange: (background: CanvasBackground) => void;
-  onParallaxChange: (patch: Partial<ParallaxConfig>) => void;
+  onNavigate: (entryId: string) => void;
+  onNewPage: () => void;
+  onDuplicatePage: () => void;
 }
 
 export function EntryCanvas({
   entry,
-  theme,
+  pageIndex,
+  pageCount,
+  previousEntryId,
+  nextEntryId,
   onBack,
   onConfigChange,
-  onGridChange,
-  onCanvasBackgroundChange,
-  onParallaxChange,
+  onNavigate,
+  onNewPage,
+  onDuplicatePage,
 }: EntryCanvasProps) {
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -78,6 +96,8 @@ export function EntryCanvas({
   const [elements, setElements] = useState<CanvasElement[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const { canvasConfig } = entry;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -95,30 +115,45 @@ export function EntryCanvas({
     db.listCanvasElementsByEntry(entry.id).then(setElements);
   }, [entry.id]);
 
-  // Background moves at parallax.backgroundSpeed of the true pan, the
-  // (currently empty -- Phase 6.5 places photos here) photo layer at
-  // parallax.photoSpeed, and the grid/elements Stage itself at 1x. Both
-  // parallax layers are plain CSS-positioned divs behind the Konva Stage,
-  // not additional Konva Layers -- getting differential speeds right via
-  // Konva's own nested transform composition is easy to get subtly wrong,
-  // while background-position/CSS transform are unambiguous. Updated
-  // imperatively via refs (not React state) so panning stays smooth.
-  const updateParallax = useCallback(() => {
+  // The background div is clipped to the page's on-screen projection (so
+  // it never shows past the bounded page's edges -- the void around it is
+  // a plain color), while its background-position keeps shifting at
+  // parallax.backgroundSpeed of the true pan. That gives "the pattern
+  // subtly shifts as you pan" depth *within* a fixed, bounded rectangle,
+  // rather than the pre-6.1 model of an unbounded background sliding
+  // independently across the whole viewport -- bounded pages and
+  // parallax depth don't compose any other way without visible gaps at
+  // the page edges.
+  const updateCanvasTransform = useCallback(() => {
     const stage = stageRef.current;
     if (!stage) return;
-    const { parallax } = theme;
-    const x = parallax.enabled ? stage.x() * parallax.backgroundSpeed : 0;
-    const y = parallax.enabled ? stage.y() * parallax.backgroundSpeed : 0;
-    if (backgroundRef.current) backgroundRef.current.style.backgroundPosition = `${x}px ${y}px`;
+    const scale = stage.scaleX();
+    const pageLeft = stage.x();
+    const pageTop = stage.y();
+    const pageWidth = canvasConfig.width * scale;
+    const pageHeight = canvasConfig.height * scale;
 
-    const photoX = parallax.enabled ? stage.x() * parallax.photoSpeed : 0;
-    const photoY = parallax.enabled ? stage.y() * parallax.photoSpeed : 0;
-    if (photoLayerRef.current) photoLayerRef.current.style.transform = `translate(${photoX}px, ${photoY}px)`;
-  }, [theme]);
+    if (backgroundRef.current) {
+      backgroundRef.current.style.left = `${pageLeft}px`;
+      backgroundRef.current.style.top = `${pageTop}px`;
+      backgroundRef.current.style.width = `${pageWidth}px`;
+      backgroundRef.current.style.height = `${pageHeight}px`;
+      const bgX = canvasConfig.parallax.enabled ? stage.x() * canvasConfig.parallax.backgroundSpeed : 0;
+      const bgY = canvasConfig.parallax.enabled ? stage.y() * canvasConfig.parallax.backgroundSpeed : 0;
+      backgroundRef.current.style.backgroundPosition = `${bgX}px ${bgY}px`;
+    }
+
+    if (photoLayerRef.current) {
+      photoLayerRef.current.style.left = `${pageLeft}px`;
+      photoLayerRef.current.style.top = `${pageTop}px`;
+      photoLayerRef.current.style.width = `${pageWidth}px`;
+      photoLayerRef.current.style.height = `${pageHeight}px`;
+    }
+  }, [canvasConfig.width, canvasConfig.height, canvasConfig.parallax]);
 
   useEffect(() => {
-    updateParallax();
-  }, [updateParallax]);
+    updateCanvasTransform();
+  }, [updateCanvasTransform]);
 
   const handlePickSticker = useCallback(
     async (sticker: AssetItem) => {
@@ -154,21 +189,50 @@ export function EntryCanvas({
     const stage = stageRef.current;
     if (!stage) return;
     onConfigChange({
-      gridType: entry.canvasConfig.gridType,
+      ...canvasConfig,
       zoom: stage.scaleX(),
       scrollX: stage.x(),
       scrollY: stage.y(),
     });
-  }, [entry.canvasConfig.gridType, onConfigChange]);
+  }, [canvasConfig, onConfigChange]);
+
+  const handleGridChange = useCallback(
+    (patch: Partial<GridConfig>) => {
+      onConfigChange({ ...canvasConfig, grid: { ...canvasConfig.grid, ...patch } });
+    },
+    [canvasConfig, onConfigChange],
+  );
+
+  const handleCanvasBackgroundChange = useCallback(
+    (background: CanvasBackground) => {
+      onConfigChange({ ...canvasConfig, canvasBackground: background });
+    },
+    [canvasConfig, onConfigChange],
+  );
+
+  const handleParallaxChange = useCallback(
+    (patch: Partial<ParallaxConfig>) => {
+      onConfigChange({ ...canvasConfig, parallax: { ...canvasConfig.parallax, ...patch } });
+    },
+    [canvasConfig, onConfigChange],
+  );
+
+  const dragBoundFunc = useCallback(
+    (pos: { x: number; y: number }) => {
+      const scale = stageRef.current?.scaleX() ?? 1;
+      return clampStagePosition(pos, scale, canvasConfig.width, canvasConfig.height, size.width, size.height);
+    },
+    [canvasConfig.width, canvasConfig.height, size.width, size.height],
+  );
 
   const handleDragMove = useCallback(() => {
-    updateParallax();
-  }, [updateParallax]);
+    updateCanvasTransform();
+  }, [updateCanvasTransform]);
 
   const handleDragEnd = useCallback(() => {
-    updateParallax();
+    updateCanvasTransform();
     persistConfig();
-  }, [updateParallax, persistConfig]);
+  }, [updateCanvasTransform, persistConfig]);
 
   const handleWheel = useCallback(
     (event: Konva.KonvaEventObject<WheelEvent>) => {
@@ -191,16 +255,40 @@ export function EntryCanvas({
         y: (pointer.y - stage.y()) / oldScale,
       };
 
-      stage.scale({ x: newScale, y: newScale });
-      stage.position({
+      const rawPosition = {
         x: pointer.x - pointInWorld.x * newScale,
         y: pointer.y - pointInWorld.y * newScale,
-      });
+      };
+      const clamped = clampStagePosition(rawPosition, newScale, canvasConfig.width, canvasConfig.height, size.width, size.height);
+
+      stage.scale({ x: newScale, y: newScale });
+      stage.position(clamped);
       stage.batchDraw();
-      updateParallax();
+      updateCanvasTransform();
       persistConfig();
     },
-    [persistConfig, updateParallax],
+    [persistConfig, updateCanvasTransform, canvasConfig.width, canvasConfig.height, size.width, size.height],
+  );
+
+  const zoomPercent = Math.round(canvasConfig.zoom * 100);
+
+  const zoomBy = useCallback(
+    (factor: number) => {
+      const stage = stageRef.current;
+      if (!stage) return;
+      const center = { x: size.width / 2, y: size.height / 2 };
+      const oldScale = stage.scaleX();
+      const newScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, oldScale * factor));
+      const pointInWorld = { x: (center.x - stage.x()) / oldScale, y: (center.y - stage.y()) / oldScale };
+      const rawPosition = { x: center.x - pointInWorld.x * newScale, y: center.y - pointInWorld.y * newScale };
+      const clamped = clampStagePosition(rawPosition, newScale, canvasConfig.width, canvasConfig.height, size.width, size.height);
+      stage.scale({ x: newScale, y: newScale });
+      stage.position(clamped);
+      stage.batchDraw();
+      updateCanvasTransform();
+      persistConfig();
+    },
+    [canvasConfig.width, canvasConfig.height, size.width, size.height, updateCanvasTransform, persistConfig],
   );
 
   return (
@@ -209,27 +297,50 @@ export function EntryCanvas({
         <button type="button" onClick={onBack}>
           ← Back
         </button>
-        <span>{entry.title}</span>
+        <button type="button" disabled={!previousEntryId} onClick={() => previousEntryId && onNavigate(previousEntryId)}>
+          ◀
+        </button>
+        <span>
+          {entry.title} — Page {pageIndex + 1} of {pageCount}
+        </span>
+        <button type="button" disabled={!nextEntryId} onClick={() => nextEntryId && onNavigate(nextEntryId)}>
+          ▶
+        </button>
+        <button type="button" onClick={onNewPage}>
+          New Page
+        </button>
+        <button type="button" onClick={onDuplicatePage}>
+          Duplicate Page
+        </button>
         <button type="button" onClick={() => setPickerOpen((open) => !open)}>
           Add Sticker
         </button>
         <button type="button" onClick={() => setSettingsOpen((open) => !open)}>
           Canvas Settings
         </button>
+        <span className="entry-canvas-zoom">
+          <button type="button" onClick={() => zoomBy(1 / ZOOM_STEP ** 8)}>
+            −
+          </button>
+          {zoomPercent}%
+          <button type="button" onClick={() => zoomBy(ZOOM_STEP ** 8)}>
+            +
+          </button>
+        </span>
       </div>
       {pickerOpen && <StickerPicker onPick={handlePickSticker} onClose={() => setPickerOpen(false)} />}
       {settingsOpen && (
         <CanvasSettingsPanel
-          grid={theme.grid}
-          canvasBackground={theme.canvasBackground}
-          parallax={theme.parallax}
-          onGridChange={onGridChange}
-          onCanvasBackgroundChange={onCanvasBackgroundChange}
-          onParallaxChange={onParallaxChange}
+          grid={canvasConfig.grid}
+          canvasBackground={canvasConfig.canvasBackground}
+          parallax={canvasConfig.parallax}
+          onGridChange={handleGridChange}
+          onCanvasBackgroundChange={handleCanvasBackgroundChange}
+          onParallaxChange={handleParallaxChange}
         />
       )}
-      <div className="entry-canvas-surface" ref={containerRef}>
-        <div ref={backgroundRef} className="entry-canvas-background" style={backgroundCss(theme.canvasBackground)} />
+      <div className="entry-canvas-surface" ref={containerRef} style={{ backgroundColor: VOID_COLOR }}>
+        <div ref={backgroundRef} className="entry-canvas-background" style={backgroundCss(canvasConfig.canvasBackground)} />
         <div ref={photoLayerRef} className="entry-canvas-photo-layer" />
         {size.width > 0 && size.height > 0 && (
           <Stage
@@ -238,16 +349,27 @@ export function EntryCanvas({
             width={size.width}
             height={size.height}
             draggable
-            x={entry.canvasConfig.scrollX}
-            y={entry.canvasConfig.scrollY}
-            scaleX={entry.canvasConfig.zoom}
-            scaleY={entry.canvasConfig.zoom}
+            dragBoundFunc={dragBoundFunc}
+            x={canvasConfig.scrollX}
+            y={canvasConfig.scrollY}
+            scaleX={canvasConfig.zoom}
+            scaleY={canvasConfig.zoom}
             onWheel={handleWheel}
             onDragMove={handleDragMove}
             onDragEnd={handleDragEnd}
           >
             <Layer listening={false}>
-              <Grid stageRef={stageRef} width={size.width} height={size.height} config={theme.grid} />
+              <Rect
+                x={0}
+                y={0}
+                width={canvasConfig.width}
+                height={canvasConfig.height}
+                stroke="#00000030"
+                strokeWidth={1}
+              />
+            </Layer>
+            <Layer listening={false}>
+              <Grid config={canvasConfig.grid} pageWidth={canvasConfig.width} pageHeight={canvasConfig.height} />
             </Layer>
             <Layer listening={false}>
               {elements.map((element) =>
@@ -276,15 +398,13 @@ export function EntryCanvas({
 }
 
 function Grid({
-  stageRef,
-  width,
-  height,
   config,
+  pageWidth,
+  pageHeight,
 }: {
-  stageRef: React.RefObject<Konva.Stage>;
-  width: number;
-  height: number;
   config: GridConfig;
+  pageWidth: number;
+  pageHeight: number;
 }) {
   if (config.style === "blank") return null;
 
@@ -292,21 +412,16 @@ function Grid({
     <Shape
       listening={false}
       opacity={config.opacity}
-      sceneFunc={(ctx, shape) => {
-        const stage = stageRef.current;
-        const scale = stage?.scaleX() ?? 1;
-        const stageX = stage?.x() ?? 0;
-        const stageY = stage?.y() ?? 0;
+      sceneFunc={(ctx) => {
         const spacing = config.spacing;
-
-        const startX = Math.floor(-stageX / scale / spacing) * spacing;
-        const endX = startX + width / scale + spacing;
-        const startY = Math.floor(-stageY / scale / spacing) * spacing;
-        const endY = startY + height / scale + spacing;
+        const startX = 0;
+        const endX = pageWidth;
+        const startY = 0;
+        const endY = pageHeight;
 
         ctx.fillStyle = config.color;
         ctx.strokeStyle = config.color;
-        ctx.lineWidth = 1 / scale;
+        ctx.lineWidth = 1;
 
         switch (config.style) {
           case "dot": {

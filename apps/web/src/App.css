@@ -313,7 +313,8 @@
 .entry-canvas-toolbar {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   padding: 0.75rem 1rem;
   border-bottom: var(--bs-line-thickness) solid var(--bs-color-border);
 }
@@ -327,6 +328,23 @@
   font: inherit;
 }
 
+.entry-canvas-toolbar button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.entry-canvas-zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.entry-canvas-zoom button {
+  padding: 0.2rem 0.55rem;
+}
+
 .entry-canvas-surface {
   flex: 1;
   min-height: 0;
@@ -334,18 +352,15 @@
   overflow: hidden;
 }
 
+/* left/top/width/height are set imperatively in EntryCanvas.tsx's
+   updateCanvasTransform, clipped to the bounded page's on-screen
+   projection -- not CSS-positioned, since they have to track panning and
+   zooming exactly. The photo layer has no content yet (Phase 6.5 places
+   photos here), but the bounded-tracking is real and verifiable today. */
 .entry-canvas-background,
 .entry-canvas-photo-layer {
   position: absolute;
-  inset: 0;
   pointer-events: none;
-}
-
-/* Sized generously past the viewport so a parallax-driven translate never
-   reveals an edge -- the layer itself has no content yet (Phase 6.5 places
-   photos here), but the offset math is real and verifiable today. */
-.entry-canvas-photo-layer {
-  inset: -50% -50%;
 }
 
 .entry-canvas-stage {

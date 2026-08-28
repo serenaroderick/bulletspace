@@ -13,11 +13,23 @@ export function serializeJournalExport(journal: Journal, entries: Entry[]): Jour
 function isValidCanvasConfig(value: unknown): value is CanvasConfig {
   if (typeof value !== "object" || value === null) return false;
   const config = value as Record<string, unknown>;
+  const grid = config.grid as Record<string, unknown> | undefined;
   return (
-    typeof config.gridType === "string" &&
+    typeof config.width === "number" &&
+    typeof config.height === "number" &&
     typeof config.zoom === "number" &&
     typeof config.scrollX === "number" &&
-    typeof config.scrollY === "number"
+    typeof config.scrollY === "number" &&
+    typeof grid === "object" &&
+    grid !== null &&
+    typeof grid.style === "string" &&
+    typeof grid.spacing === "number" &&
+    typeof grid.color === "string" &&
+    typeof grid.opacity === "number" &&
+    typeof config.canvasBackground === "object" &&
+    config.canvasBackground !== null &&
+    typeof config.parallax === "object" &&
+    config.parallax !== null
   );
 }
 

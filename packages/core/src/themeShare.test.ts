@@ -23,9 +23,6 @@ const sepia: ThemeDefinition = {
   spacingUnit: 8,
   cornerRadius: 4,
   lineThickness: 1,
-  grid: { style: "dot", spacing: 24, color: "#d8c9a8", opacity: 0.7 },
-  canvasBackground: { type: "color", value: "#f4ecd8" },
-  parallax: { enabled: true, backgroundSpeed: 0.3, photoSpeed: 0.7 },
 };
 
 const stickerPack: AssetDefinition = {
@@ -61,18 +58,6 @@ describe("serializeThemeShare / parseThemeShare", () => {
   it("rejects an asset pack file passed as a theme", () => {
     const assetShare = serializeAssetShare(stickerPack);
     expect(() => parseThemeShare(JSON.stringify(assetShare))).toThrow("Not a valid BulletSpace theme file.");
-  });
-
-  it("rejects a theme with an unrecognized grid style", () => {
-    const share = serializeThemeShare(sepia);
-    const malformed = { ...share, theme: { ...sepia, grid: { ...sepia.grid, style: "triangular" } } };
-    expect(() => parseThemeShare(JSON.stringify(malformed))).toThrow("Not a valid BulletSpace theme file.");
-  });
-
-  it("rejects a theme with a malformed parallax config", () => {
-    const share = serializeThemeShare(sepia);
-    const malformed = { ...share, theme: { ...sepia, parallax: { enabled: "yes" } } };
-    expect(() => parseThemeShare(JSON.stringify(malformed))).toThrow("Not a valid BulletSpace theme file.");
   });
 });
 

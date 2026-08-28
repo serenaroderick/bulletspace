@@ -23,7 +23,16 @@ function makeEntry(overrides: Partial<Entry> = {}): Entry {
     journalId: "journal-1",
     title: "2026-08-20",
     content: "# Today\n",
-    canvasConfig: { gridType: "dot", zoom: 1, scrollX: 0, scrollY: 0 },
+    canvasConfig: {
+      width: 4000,
+      height: 4000,
+      zoom: 1,
+      scrollX: 0,
+      scrollY: 0,
+      grid: { style: "dot", spacing: 24, color: "#dddddd", opacity: 0.7 },
+      canvasBackground: { type: "color", value: "#ffffff" },
+      parallax: { enabled: true, backgroundSpeed: 0.3, photoSpeed: 0.7 },
+    },
     mood: null,
     energy: null,
     focus: null,
@@ -81,9 +90,6 @@ function makeThemeDefinition(overrides: Partial<ThemeDefinition> = {}): ThemeDef
     spacingUnit: 8,
     cornerRadius: 6,
     lineThickness: 1,
-    grid: { style: "dot", spacing: 24, color: "#dddddd", opacity: 0.7 },
-    canvasBackground: { type: "color", value: "#ffffff" },
-    parallax: { enabled: true, backgroundSpeed: 0.3, photoSpeed: 0.7 },
     ...overrides,
   };
 }
