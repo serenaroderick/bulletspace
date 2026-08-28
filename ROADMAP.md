@@ -362,15 +362,20 @@ Same model as Obsidian Sync or Anytype's optional sync layer.
       doesn't have. Google/GitHub OAuth2 (PocketBase ships this built-in)
       is deferred, not abandoned — email/password proved the wiring end
       to end without needing OAuth app registrations first.
-- [x] PocketBase setup — installed locally (`apps/backend/`, see its
-      README), schema-as-code migration for the one collection sync
-      needs (`sync_blobs`), per-user access rules
-      (`owner = @request.auth.id`) verified live against a running
-      instance via curl: own create/read succeed, cross-user reads 404,
-      owner-impersonation on create is rejected, unauthenticated is
-      blocked. Local dev only — nothing deployed publicly yet; deployment
-      (Cloudflare Workers/Vercel or self-hosted) deferred until the
-      frontend actually talks to it.
+- [x] PocketBase setup, local and deployed — `apps/backend/` (see its
+      README): schema-as-code migrations for `sync_blobs`, per-user
+      access rules (`owner = @request.auth.id`). Deployed to Railway
+      (`Dockerfile` + a persistent volume for `pb_data`, since this is a
+      stateful Go binary, not something that fits Cloudflare
+      Workers/Vercel's serverless model — that original wording was
+      inherited from when Supabase was still on the table). Live at
+      https://bulletspace-backend-production.up.railway.app. Full
+      access-control suite re-verified against the deployed instance via
+      curl, not just locally: own create/read succeed, cross-user reads
+      404, owner-impersonation on create rejected (400), unauthenticated
+      blocked. `apps/web` doesn't point at the production URL by default
+      yet — this is the backend existing and being correct, not the
+      frontend using it in production.
 - [x] Client-side encryption layer (password-based) for sync —
       `packages/core/src/encryption.ts`: PBKDF2 (250k iterations) + AES-GCM
       via Web Crypto, no external deps. `sync_blobs.encryptedPayload` only
