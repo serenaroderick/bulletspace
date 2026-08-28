@@ -373,9 +373,18 @@ Same model as Obsidian Sync or Anytype's optional sync layer.
       access-control suite re-verified against the deployed instance via
       curl, not just locally: own create/read succeed, cross-user reads
       404, owner-impersonation on create rejected (400), unauthenticated
-      blocked. `apps/web` doesn't point at the production URL by default
-      yet — this is the backend existing and being correct, not the
-      frontend using it in production.
+      blocked. A signed-out user can now point their client at any
+      instance via a "Server" field in `AccountPanel`
+      (`getServerUrl`/`setServerUrl`) — the literal "self-host for max
+      privacy, or use a public hosted instance" trust tier from this
+      phase's own goal, not locked to whatever URL was baked in at build
+      time. Verified live against the deployed Railway instance from the
+      real running app, not just curl. The build-time *default* is
+      deliberately left pointing at local dev, not the public instance —
+      defaulting every build of this app to one developer's personal
+      Railway billing, with no rate-limiting yet in place, is a real
+      product decision to make deliberately later, not something that
+      should fall out of a settings feature.
 - [x] Client-side encryption layer (password-based) for sync —
       `packages/core/src/encryption.ts`: PBKDF2 (250k iterations) + AES-GCM
       via Web Crypto, no external deps. `sync_blobs.encryptedPayload` only

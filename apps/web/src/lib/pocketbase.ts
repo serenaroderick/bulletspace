@@ -1,9 +1,33 @@
 import PocketBase, { type RecordModel } from "pocketbase";
 import { gatekeeper } from "./gatekeeper";
 
-const POCKETBASE_URL = import.meta.env.VITE_POCKETBASE_URL ?? "http://127.0.0.1:8090";
+const SERVER_URL_STORAGE_KEY = "bulletspace.pocketbase.serverUrl";
+const DEFAULT_SERVER_URL = import.meta.env.VITE_POCKETBASE_URL ?? "http://127.0.0.1:8090";
 
-export const pb = new PocketBase(POCKETBASE_URL);
+function loadServerUrl(): string {
+  return localStorage.getItem(SERVER_URL_STORAGE_KEY) ?? DEFAULT_SERVER_URL;
+}
+
+export const pb = new PocketBase(loadServerUrl());
+
+export function getServerUrl(): string {
+  return pb.baseURL;
+}
+
+/**
+ * Lets a signed-out user point the client at any PocketBase instance --
+ * a self-hosted one, or a public one someone else runs -- rather than
+ * being locked to whatever VITE_POCKETBASE_URL was baked in at build
+ * time. This is the "self-host for max privacy" tier from Phase 5's own
+ * three-tier trust model in ROADMAP.md, not just a convenience setting.
+ * Clears the current session: an auth token from one server is
+ * meaningless (and potentially misleading) against a different one.
+ */
+export function setServerUrl(url: string): void {
+  pb.authStore.clear();
+  pb.baseURL = url;
+  localStorage.setItem(SERVER_URL_STORAGE_KEY, url);
+}
 
 // Route every PocketBase request -- auth, CRUD, the SDK's own token
 // auto-refresh -- through the same NetworkGatekeeper every adapter fetch

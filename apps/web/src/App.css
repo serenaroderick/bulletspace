@@ -190,6 +190,22 @@
   font-size: 0.8rem;
 }
 
+.server-field {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.server-field input {
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #8885;
+  font: inherit;
+  font-size: 0.85rem;
+  width: 14rem;
+}
+
 .entry-form {
   display: flex;
   flex-direction: column;

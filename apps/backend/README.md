@@ -5,10 +5,18 @@ Go binary, embedded SQLite). Local Purist mode never touches this
 regardless; only Connected/AI mode features (sync) do.
 
 Deployed publicly on Railway: **https://bulletspace-backend-production.up.railway.app**
-Dashboard: same host + `/_/`. Nothing in `apps/web` points at it by
-default yet (`VITE_POCKETBASE_URL` still falls back to local dev) — the
-production instance exists and is schema-verified, but no build has been
-pointed at it as the default target yet.
+Dashboard: same host + `/_/`. `apps/web` still *defaults* to local dev
+(`VITE_POCKETBASE_URL`'s fallback is unchanged) — but a signed-out user
+can now point their client at any instance, including this one, via the
+"Server" field in `AccountPanel` (`getServerUrl`/`setServerUrl` in
+`lib/pocketbase.ts`, persisted to localStorage). Verified live: pointed a
+real running dev build at the production URL and signed up against it
+through the actual UI, not just curl.
+**Deliberately not changed:** the build-time default. Making the public
+Railway instance the out-of-the-box default for anyone who builds this
+app would put their traffic on this project's own billing account with
+no rate-limiting in place yet — that's a real product decision, not
+something to fall out of a settings feature.
 
 ## Running locally
 
@@ -78,9 +86,8 @@ credentials for this.
 
 ## What's not here yet
 
-- `apps/web` doesn't point at the production URL by default — only local
-  dev. Pointing a real build at it (env var, or a settings UI) hasn't
-  been done.
+- No rate limiting or abuse protection on the public instance yet — fine
+  for one developer's own testing, not fine as a real shared default.
 - Google/GitHub OAuth2 for accounts — PocketBase supports this natively,
   deferred until a provider app is registered.
 - OAuth relay for `oauth_client_secret` adapters — separate concern, not
