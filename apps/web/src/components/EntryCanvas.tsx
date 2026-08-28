@@ -149,7 +149,9 @@ export function EntryCanvas({
       photoLayerRef.current.style.width = `${pageWidth}px`;
       photoLayerRef.current.style.height = `${pageHeight}px`;
     }
-  }, [canvasConfig.width, canvasConfig.height, canvasConfig.parallax]);
+    // biome-ignore lint: size.width/size.height aren't read in the body, but the Stage (and stageRef.current) only
+    // exists once they're > 0 -- this must re-run when that flips true, not just when config values change.
+  }, [canvasConfig.width, canvasConfig.height, canvasConfig.parallax, size.width, size.height]);
 
   useEffect(() => {
     updateCanvasTransform();
@@ -215,6 +217,45 @@ export function EntryCanvas({
       onConfigChange({ ...canvasConfig, parallax: { ...canvasConfig.parallax, ...patch } });
     },
     [canvasConfig, onConfigChange],
+  );
+
+  const handleSnapToGridChange = useCallback(
+    (snapToGrid: boolean) => {
+      onConfigChange({ ...canvasConfig, snapToGrid });
+    },
+    [canvasConfig, onConfigChange],
+  );
+
+  // Phase 6.2: snapping happens live during the drag (not just on drop) --
+  // dragging a sticker jumps between grid positions as it moves, using the
+  // same spacing the visible grid already draws at rather than a second,
+  // independently-configurable number that could drift out of sync with it.
+  const handleElementDragStart = useCallback((e: Konva.KonvaEventObject<DragEvent>) => {
+    e.target.moveToTop();
+  }, []);
+
+  const handleElementDragMove = useCallback(
+    (e: Konva.KonvaEventObject<DragEvent>) => {
+      if (!canvasConfig.snapToGrid) return;
+      const spacing = canvasConfig.grid.spacing;
+      const node = e.target;
+      node.position({
+        x: Math.round(node.x() / spacing) * spacing,
+        y: Math.round(node.y() / spacing) * spacing,
+      });
+    },
+    [canvasConfig.snapToGrid, canvasConfig.grid.spacing],
+  );
+
+  const handleElementDragEnd = useCallback(
+    async (elementId: string, e: Konva.KonvaEventObject<DragEvent>) => {
+      const node = e.target;
+      const maxZIndex = elements.reduce((max, el) => Math.max(max, el.zIndex), 0);
+      const patch = { x: node.x(), y: node.y(), zIndex: maxZIndex + 1 };
+      await db.updateCanvasElement(elementId, patch);
+      setElements((prev) => prev.map((el) => (el.id === elementId ? { ...el, ...patch } : el)));
+    },
+    [elements],
   );
 
   const dragBoundFunc = useCallback(
@@ -328,20 +369,28 @@ export function EntryCanvas({
           </button>
         </span>
       </div>
-      {pickerOpen && <StickerPicker onPick={handlePickSticker} onClose={() => setPickerOpen(false)} />}
-      {settingsOpen && (
-        <CanvasSettingsPanel
-          grid={canvasConfig.grid}
-          canvasBackground={canvasConfig.canvasBackground}
-          parallax={canvasConfig.parallax}
-          onGridChange={handleGridChange}
-          onCanvasBackgroundChange={handleCanvasBackgroundChange}
-          onParallaxChange={handleParallaxChange}
-        />
-      )}
       <div className="entry-canvas-surface" ref={containerRef} style={{ backgroundColor: VOID_COLOR }}>
         <div ref={backgroundRef} className="entry-canvas-background" style={backgroundCss(canvasConfig.canvasBackground)} />
         <div ref={photoLayerRef} className="entry-canvas-photo-layer" />
+        {pickerOpen && (
+          <div className="entry-canvas-floating-panel">
+            <StickerPicker onPick={handlePickSticker} onClose={() => setPickerOpen(false)} />
+          </div>
+        )}
+        {settingsOpen && (
+          <div className="entry-canvas-floating-panel">
+            <CanvasSettingsPanel
+              grid={canvasConfig.grid}
+              canvasBackground={canvasConfig.canvasBackground}
+              parallax={canvasConfig.parallax}
+              snapToGrid={canvasConfig.snapToGrid}
+              onGridChange={handleGridChange}
+              onCanvasBackgroundChange={handleCanvasBackgroundChange}
+              onParallaxChange={handleParallaxChange}
+              onSnapToGridChange={handleSnapToGridChange}
+            />
+          </div>
+        )}
         {size.width > 0 && size.height > 0 && (
           <Stage
             ref={stageRef}
@@ -371,24 +420,30 @@ export function EntryCanvas({
             <Layer listening={false}>
               <Grid config={canvasConfig.grid} pageWidth={canvasConfig.width} pageHeight={canvasConfig.height} />
             </Layer>
-            <Layer listening={false}>
-              {elements.map((element) =>
-                element.type === "sticker" ? (
-                  <Text
-                    key={element.id}
-                    x={element.x}
-                    y={element.y}
-                    width={element.width}
-                    height={element.height}
-                    text={typeof element.content.src === "string" ? element.content.src : ""}
-                    fontSize={element.height}
-                    rotation={element.rotation}
-                    opacity={element.opacity}
-                    align="center"
-                    verticalAlign="middle"
-                  />
-                ) : null,
-              )}
+            <Layer>
+              {[...elements]
+                .sort((a, b) => a.zIndex - b.zIndex)
+                .map((element) =>
+                  element.type === "sticker" ? (
+                    <Text
+                      key={element.id}
+                      x={element.x}
+                      y={element.y}
+                      width={element.width}
+                      height={element.height}
+                      text={typeof element.content.src === "string" ? element.content.src : ""}
+                      fontSize={element.height}
+                      rotation={element.rotation}
+                      opacity={element.opacity}
+                      align="center"
+                      verticalAlign="middle"
+                      draggable
+                      onDragStart={handleElementDragStart}
+                      onDragMove={handleElementDragMove}
+                      onDragEnd={(e) => handleElementDragEnd(element.id, e)}
+                    />
+                  ) : null,
+                )}
             </Layer>
           </Stage>
         )}

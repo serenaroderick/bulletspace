@@ -29,7 +29,8 @@ function isValidCanvasConfig(value: unknown): value is CanvasConfig {
     typeof config.canvasBackground === "object" &&
     config.canvasBackground !== null &&
     typeof config.parallax === "object" &&
-    config.parallax !== null
+    config.parallax !== null &&
+    typeof config.snapToGrid === "boolean"
   );
 }
 

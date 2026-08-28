@@ -6,9 +6,11 @@ interface CanvasSettingsPanelProps {
   grid: GridConfig;
   canvasBackground: CanvasBackground;
   parallax: ParallaxConfig;
+  snapToGrid: boolean;
   onGridChange: (patch: Partial<GridConfig>) => void;
   onCanvasBackgroundChange: (background: CanvasBackground) => void;
   onParallaxChange: (patch: Partial<ParallaxConfig>) => void;
+  onSnapToGridChange: (snapToGrid: boolean) => void;
 }
 
 const GRID_STYLES: GridStyle[] = ["dot", "lined", "graph", "blank"];
@@ -25,9 +27,11 @@ export function CanvasSettingsPanel({
   grid,
   canvasBackground,
   parallax,
+  snapToGrid,
   onGridChange,
   onCanvasBackgroundChange,
   onParallaxChange,
+  onSnapToGridChange,
 }: CanvasSettingsPanelProps) {
   const handleBackgroundTypeChange = (event: ChangeEvent<HTMLSelectElement>) => {
     const type = event.target.value;
@@ -105,6 +109,16 @@ export function CanvasSettingsPanel({
           step={0.05}
           value={grid.opacity}
           onChange={(event) => onGridChange({ opacity: Number(event.target.value) })}
+        />
+      </div>
+
+      <div className="canvas-settings-row">
+        <label htmlFor="snap-to-grid">Snap to grid</label>
+        <input
+          id="snap-to-grid"
+          type="checkbox"
+          checked={snapToGrid}
+          onChange={(event) => onSnapToGridChange(event.target.checked)}
         />
       </div>
 

@@ -658,28 +658,86 @@ live; the floating-toolbar/top-right-toggle/right-panel restyling is not.
 **Goal:** modules are no longer grid-locked; they can be placed anywhere,
 resized, and layered.
 
-- [ ] Drag anywhere — click-and-hold anywhere on a module (not just its
-      header) to drag it; it follows the cursor smoothly
-- [ ] Position persistence — each module's x/y is saved to the database
-      (IndexedDB/file system) and restored on reload
-- [ ] Z-index stacking — clicking a module brings it to front; stacking
-      order persists across reloads
-- [ ] Resize handles on each module's corners and edges; the new size
-      persists
-- [ ] Rotation handle (e.g. a small circle above the module) for free
-      rotation; rotation persists
-- [ ] Snap to grid — dragging snaps to grid lines at a configurable
-      spacing; toggleable on/off
-- [ ] Multi-select — shift+click selects multiple modules, which can then
-      be moved, resized, rotated, or deleted together
-- [ ] Grouping — Cmd+G groups selected modules into a single unit,
-      Cmd+Shift+G ungroups; groups move/resize/layer as one
-- [ ] Context menu — right-clicking a module or group offers Bring to
-      Front, Send to Back, Duplicate, Delete, Group/Ungroup
+**Scope note:** "modules" here (habit streak, mood chart, etc.) are still
+hardcoded React components in the dashboard list — they are not
+`CanvasElement`s and don't live on the bounded canvas at all. Making an
+actual dashboard module draggable on the canvas means placing it there in
+the first place, a separate, larger integration this phase doesn't
+include. Everything below is built and verified against **stickers**, the
+only real `CanvasElement` content that exists today (Phase 5.5) — the
+mechanism (drag, snap, z-index, persistence) is generic over
+`CanvasElement`, so wiring an actual module in later is additive, not a
+rebuild.
+
+**Build-order change from the original DoD, made deliberately before
+writing code**: grid-snap ships first and is the default, not freeform.
+Reasoning: alignment reads as "bullet journal," raw pixel positions read
+as clutter; snapping is also the simpler implementation
+(`Math.round(x / spacing) * spacing` on top of drag events that already
+have to exist), so there's no cost to sequencing it first. Freeform is a
+per-page toggle, using the page's own visible grid spacing
+(`canvasConfig.grid.spacing`) as the snap increment rather than a second,
+independently-configurable number that could drift out of sync with the
+grid you can see.
+
+- [x] Drag anywhere — click-and-hold anywhere on a sticker (the whole
+      Konva `Text` node is draggable, not just a handle) to drag it.
+      Verified live with exact pixel math (not just visually): dragged a
+      sticker by a real mouse delta of (137, 61) and confirmed the
+      persisted position moved by exactly that amount.
+- [x] Grid snap (default) — snapping happens live during the drag, not
+      just on drop. Verified live: after a snapped drag, the persisted
+      x/y were exact multiples of the grid spacing (24px default).
+- [x] Freeform toggle — a checkbox in the (now floating, see below)
+      Canvas Settings panel, persisted per-page via
+      `CanvasConfig.snapToGrid`. Verified live: with it off, the same
+      137×61 drag landed at a non-grid-aligned position and stayed there
+      after leaving and re-entering the canvas.
+- [x] Position persistence — `db.updateCanvasElement` on drag end;
+      verified live surviving a full leave/re-enter of the canvas view,
+      for both the snapped and freeform cases.
+- [x] Z-index stacking — dragging a sticker calls `moveToTop()`
+      immediately (so it visually renders above others *during* the
+      drag, not just after) and persists `zIndex = max(others) + 1` on
+      drop; the render list sorts by `zIndex` before mapping, so stacking
+      order survives a reload. Verified live: zIndex went 0 → 1 after one
+      drag.
+- [ ] Resize handles — not built yet.
+- [ ] Rotation handle — not built yet (the `rotation` field has existed
+      on `CanvasElement` since Phase 5.5, unused until now).
+- [ ] Multi-select — not built yet.
+- [ ] Grouping — not built yet.
+- [ ] Context menu — not built yet.
+
+**Bug found via testing, not code review**: the canvas background never
+rendered on first load — it only appeared after some pan/zoom action
+happened to trigger it. Root cause: the effect that positions the
+background div only re-ran when `canvasConfig` values changed, not when
+the Konva `Stage` itself finished mounting (which happens asynchronously,
+after `ResizeObserver` reports a non-zero size) — so on a fresh page load,
+`stageRef.current` was still `null` the one time the effect fired. Fixed
+by keying the effect to `size.width`/`size.height` too. Caught because a
+screenshot taken immediately on opening a fresh page showed solid void
+gray where the white page should have been — an earlier verification
+pass had only ever screenshotted *after* zooming, which incidentally
+triggered the same code path and masked the bug.
+
+**Also fixed, found via the same testing pass**: the sticker picker and
+Canvas Settings panels were pushing the canvas surface down via normal
+document flow, drastically shrinking the visible page whenever either was
+open (confirmed as the actual cause of a failed drag-verification attempt
+— the target sticker had scrolled below the visible, squeezed viewport).
+Changed both to float over the canvas (`position: absolute`, drop
+shadow) instead of pushing it — matches the Figma-panel aesthetic Phase
+6.1 wants anyway, not just a test-driven patch.
 
 **Success criteria:** modules can be freely dragged, resized, rotated,
 layered, grouped, and reordered via context menu, with every property
-surviving a reload.
+surviving a reload. **Partially met**: drag, z-index, and persistence are
+done and verified for stickers; resize, rotation, multi-select, grouping,
+and the context menu are not built. Extending this to actual dashboard
+modules requires first putting them on the canvas at all, which is out of
+this phase's scope as written.
 
 ## Phase 6.3: Module Properties Panel
 

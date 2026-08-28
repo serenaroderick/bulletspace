@@ -17,6 +17,7 @@ const entries = [
       grid: { style: "dot" as const, spacing: 24, color: "#dddddd", opacity: 0.7 },
       canvasBackground: { type: "color" as const, value: "#ffffff" },
       parallax: { enabled: true, backgroundSpeed: 0.3, photoSpeed: 0.7 },
+      snapToGrid: true,
     },
     mood: 5,
     energy: null,

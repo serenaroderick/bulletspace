@@ -32,6 +32,7 @@ function makeEntry(overrides: Partial<Entry> = {}): Entry {
       grid: { style: "dot", spacing: 24, color: "#dddddd", opacity: 0.7 },
       canvasBackground: { type: "color", value: "#ffffff" },
       parallax: { enabled: true, backgroundSpeed: 0.3, photoSpeed: 0.7 },
+      snapToGrid: true,
     },
     mood: null,
     energy: null,

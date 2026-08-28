@@ -65,6 +65,14 @@ export interface CanvasConfig {
   grid: GridConfig;
   canvasBackground: CanvasBackground;
   parallax: ParallaxConfig;
+  /**
+   * Phase 6.2: dragged elements snap to `grid.spacing` by default -- the
+   * increment users already see, not a second independent number that
+   * could drift out of sync with the visible grid. Freeform is a toggle,
+   * not the default: alignment reads as "bullet journal," raw pixel
+   * positions don't.
+   */
+  snapToGrid: boolean;
 }
 
 export type CanvasElementType = "text" | "table" | "chart" | "image" | "embed" | "sticker";

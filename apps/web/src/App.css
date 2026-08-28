@@ -368,9 +368,29 @@
   z-index: 1;
 }
 
+/* Floats over the canvas instead of pushing it down via normal flow --
+   panels stay open while you look at (and interact with) the canvas
+   underneath, rather than eating most of the visible page. */
+.entry-canvas-floating-panel {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 2;
+  max-height: calc(100% - 1.5rem);
+  overflow-y: auto;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  background: var(--bs-color-surface);
+}
+
+.entry-canvas-floating-panel .sticker-picker,
+.entry-canvas-floating-panel .canvas-settings-panel {
+  border-bottom: none;
+}
+
 .sticker-picker {
   padding: 0.75rem 1rem;
   border-bottom: var(--bs-line-thickness) solid var(--bs-color-border);
+  border-radius: var(--bs-corner-radius);
 }
 
 .sticker-picker-header {
@@ -400,7 +420,7 @@
 .canvas-settings-panel {
   padding: 0.75rem 1rem;
   border-bottom: var(--bs-line-thickness) solid var(--bs-color-border);
-  border-radius: 0;
+  border-radius: var(--bs-corner-radius);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
