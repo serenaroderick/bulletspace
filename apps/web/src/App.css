@@ -27,8 +27,8 @@
 
 .header-actions > button {
   padding: 0.35rem 0.75rem;
-  border-radius: 6px;
-  border: 1px solid #8885;
+  border-radius: var(--bs-corner-radius);
+  border: var(--bs-line-thickness) solid var(--bs-color-border);
   background: none;
   cursor: pointer;
   font: inherit;
@@ -56,15 +56,15 @@
 }
 
 .module {
-  border: 1px solid #8885;
-  border-radius: 8px;
+  border: var(--bs-line-thickness) solid var(--bs-color-border);
+  border-radius: var(--bs-corner-radius);
   padding: 0.75rem 1rem;
 }
 
 .module h3 {
   font-size: 0.9rem;
   margin: 0 0 0.5rem;
-  color: #8888;
+  color: var(--bs-color-text-muted);
 }
 
 .module-header {
@@ -91,11 +91,11 @@
 .habit-cell {
   aspect-ratio: 1;
   border-radius: 3px;
-  background: #8883;
+  background: var(--bs-color-surface);
 }
 
 .habit-cell.filled {
-  background: #4f7cff;
+  background: var(--bs-color-accent);
 }
 
 .device-code {
@@ -118,8 +118,8 @@
 .network-toggle {
   display: flex;
   gap: 0.25rem;
-  border: 1px solid #8885;
-  border-radius: 8px;
+  border: var(--bs-line-thickness) solid var(--bs-color-border);
+  border-radius: var(--bs-corner-radius);
   padding: 0.25rem;
 }
 
@@ -127,13 +127,13 @@
   border: none;
   background: none;
   padding: 0.35rem 0.6rem;
-  border-radius: 6px;
+  border-radius: var(--bs-corner-radius);
   cursor: pointer;
   font-size: 0.85rem;
 }
 
 .network-toggle button.active {
-  background: #8883;
+  background: var(--bs-color-surface);
 }
 
 .account-panel {
@@ -145,8 +145,8 @@
 
 .account-panel button {
   padding: 0.35rem 0.75rem;
-  border-radius: 6px;
-  border: 1px solid #8885;
+  border-radius: var(--bs-corner-radius);
+  border: var(--bs-line-thickness) solid var(--bs-color-border);
   background: none;
   cursor: pointer;
   font: inherit;
@@ -162,8 +162,8 @@
 
 .account-form input {
   padding: 0.35rem 0.5rem;
-  border-radius: 6px;
-  border: 1px solid #8885;
+  border-radius: var(--bs-corner-radius);
+  border: var(--bs-line-thickness) solid var(--bs-color-border);
   font: inherit;
   font-size: 0.85rem;
   width: 9rem;
@@ -178,15 +178,15 @@
 
 .sync-panel input {
   padding: 0.35rem 0.5rem;
-  border-radius: 6px;
-  border: 1px solid #8885;
+  border-radius: var(--bs-corner-radius);
+  border: var(--bs-line-thickness) solid var(--bs-color-border);
   font: inherit;
   font-size: 0.85rem;
   width: 9rem;
 }
 
 .sync-status {
-  color: #8888;
+  color: var(--bs-color-text-muted);
   font-size: 0.8rem;
 }
 
@@ -199,8 +199,8 @@
 
 .server-field input {
   padding: 0.35rem 0.5rem;
-  border-radius: 6px;
-  border: 1px solid #8885;
+  border-radius: var(--bs-corner-radius);
+  border: var(--bs-line-thickness) solid var(--bs-color-border);
   font: inherit;
   font-size: 0.85rem;
   width: 14rem;
@@ -218,8 +218,8 @@
 .entry-form select {
   font: inherit;
   padding: 0.5rem;
-  border: 1px solid #8885;
-  border-radius: 6px;
+  border: var(--bs-line-thickness) solid var(--bs-color-border);
+  border-radius: var(--bs-corner-radius);
   background: transparent;
   color: inherit;
 }
@@ -235,15 +235,15 @@
 }
 
 .weather-source {
-  color: #8888;
+  color: var(--bs-color-text-muted);
   font-size: 0.85em;
 }
 
 .entry-form button {
   align-self: flex-start;
   padding: 0.5rem 1rem;
-  border-radius: 6px;
-  border: 1px solid #8885;
+  border-radius: var(--bs-corner-radius);
+  border: var(--bs-line-thickness) solid var(--bs-color-border);
   background: none;
   cursor: pointer;
   font: inherit;
@@ -259,8 +259,8 @@
 }
 
 .entry {
-  border: 1px solid #8885;
-  border-radius: 8px;
+  border: var(--bs-line-thickness) solid var(--bs-color-border);
+  border-radius: var(--bs-corner-radius);
   padding: 0.75rem 1rem;
 }
 
@@ -285,12 +285,12 @@
   white-space: pre-wrap;
   font-family: inherit;
   margin: 0 0 0.5rem;
-  color: #8888;
+  color: var(--bs-color-text-muted);
 }
 
 .entry .empty,
 .empty {
-  color: #8888;
+  color: var(--bs-color-text-muted);
   list-style: none;
 }
 
@@ -315,13 +315,13 @@
   align-items: center;
   gap: 1rem;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid #8885;
+  border-bottom: var(--bs-line-thickness) solid var(--bs-color-border);
 }
 
 .entry-canvas-toolbar button {
   padding: 0.35rem 0.75rem;
-  border-radius: 6px;
-  border: 1px solid #8885;
+  border-radius: var(--bs-corner-radius);
+  border: var(--bs-line-thickness) solid var(--bs-color-border);
   background: none;
   cursor: pointer;
   font: inherit;
@@ -330,6 +330,35 @@
 .entry-canvas-surface {
   flex: 1;
   min-height: 0;
+}
+
+.sticker-picker {
+  padding: 0.75rem 1rem;
+  border-bottom: var(--bs-line-thickness) solid var(--bs-color-border);
+}
+
+.sticker-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.sticker-picker-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.sticker-picker-item {
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 0.4rem;
+  border-radius: var(--bs-corner-radius);
+  border: var(--bs-line-thickness) solid var(--bs-color-border);
+  background: none;
+  cursor: pointer;
 }
 
 .entry-view {
@@ -349,8 +378,8 @@
 
 .entry-view-toolbar button {
   padding: 0.35rem 0.75rem;
-  border-radius: 6px;
-  border: 1px solid #8885;
+  border-radius: var(--bs-corner-radius);
+  border: var(--bs-line-thickness) solid var(--bs-color-border);
   background: none;
   cursor: pointer;
   font: inherit;
@@ -363,8 +392,8 @@
 .mode-switch {
   display: flex;
   gap: 0.25rem;
-  border: 1px solid #8885;
-  border-radius: 8px;
+  border: var(--bs-line-thickness) solid var(--bs-color-border);
+  border-radius: var(--bs-corner-radius);
   padding: 0.25rem;
 }
 
@@ -374,7 +403,7 @@
 }
 
 .mode-switch button.active {
-  background: #8883;
+  background: var(--bs-color-surface);
 }
 
 .entry-view-title {
@@ -383,7 +412,7 @@
   font-weight: 600;
   padding: 0.25rem 0;
   border: none;
-  border-bottom: 1px solid #8885;
+  border-bottom: var(--bs-line-thickness) solid var(--bs-color-border);
   background: transparent;
   color: inherit;
 }
@@ -392,8 +421,8 @@
   font: inherit;
   min-height: 300px;
   padding: 0.75rem;
-  border: 1px solid #8885;
-  border-radius: 6px;
+  border: var(--bs-line-thickness) solid var(--bs-color-border);
+  border-radius: var(--bs-corner-radius);
   background: transparent;
   color: inherit;
   resize: vertical;
@@ -402,8 +431,8 @@
 .entry-view-preview {
   min-height: 300px;
   padding: 0.75rem;
-  border: 1px solid #8885;
-  border-radius: 6px;
+  border: var(--bs-line-thickness) solid var(--bs-color-border);
+  border-radius: var(--bs-corner-radius);
 }
 
 .entry-view-preview p:first-child {
@@ -415,20 +444,20 @@
   border: none;
   padding: 0;
   font: inherit;
-  color: #4f7cff;
+  color: var(--bs-color-accent);
   text-decoration: underline;
   cursor: pointer;
 }
 
 .entry-view-backlinks {
-  border-top: 1px solid #8885;
+  border-top: var(--bs-line-thickness) solid var(--bs-color-border);
   padding-top: 1rem;
 }
 
 .entry-view-backlinks h3 {
   font-size: 0.9rem;
   margin: 0 0 0.5rem;
-  color: #8888;
+  color: var(--bs-color-text-muted);
 }
 
 .entry-view-backlinks ul {
@@ -445,7 +474,7 @@
   border: none;
   padding: 0;
   font: inherit;
-  color: #4f7cff;
+  color: var(--bs-color-accent);
   text-decoration: underline;
   cursor: pointer;
 }
@@ -460,13 +489,13 @@
 .merge-table td {
   text-align: left;
   padding: 0.35rem 0.5rem;
-  border-bottom: 1px solid #8883;
+  border-bottom: var(--bs-line-thickness) solid var(--bs-color-border);
 }
 
 .offline-banner {
   background: #f5a6231a;
   border: 1px solid #f5a62355;
-  border-radius: 6px;
+  border-radius: var(--bs-corner-radius);
   padding: 0.5rem 0.75rem;
   font-size: 0.85rem;
   margin: 0 0 0.5rem;
@@ -477,7 +506,7 @@
   gap: 1rem;
   margin-top: 0.5rem;
   font-size: 0.8rem;
-  color: #8888;
+  color: var(--bs-color-text-muted);
 }
 
 .legend-item {
@@ -504,7 +533,7 @@
 }
 
 .shared-modules-hint {
-  color: #8888;
+  color: var(--bs-color-text-muted);
   font-size: 0.85rem;
   margin: 0 0 0.5rem;
 }
@@ -513,8 +542,8 @@
   width: 100%;
   font: inherit;
   padding: 0.5rem;
-  border: 1px solid #8885;
-  border-radius: 6px;
+  border: var(--bs-line-thickness) solid var(--bs-color-border);
+  border-radius: var(--bs-corner-radius);
   background: transparent;
   color: inherit;
   margin-bottom: 0.5rem;
@@ -524,7 +553,7 @@
 .shared-modules-preview {
   margin-top: 0.75rem;
   padding-top: 0.75rem;
-  border-top: 1px solid #8883;
+  border-top: var(--bs-line-thickness) solid var(--bs-color-border);
 }
 
 .shared-modules-preview ul {

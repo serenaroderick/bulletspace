@@ -48,11 +48,11 @@ export function MoodLineChart({ entries }: MoodLineChartProps) {
         <polyline
           points={coords.map((point) => `${point.x},${point.y}`).join(" ")}
           fill="none"
-          stroke="#4f7cff"
+          stroke="var(--bs-color-accent)"
           strokeWidth={2}
         />
         {coords.map((point, i) => (
-          <circle key={points[i].id} cx={point.x} cy={point.y} r={3} fill="#4f7cff" />
+          <circle key={points[i].id} cx={point.x} cy={point.y} r={3} fill="var(--bs-color-accent)" />
         ))}
       </svg>
     </div>

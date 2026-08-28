@@ -36,13 +36,19 @@ export function BarChart({ rows, xField, yField }: BarChartProps) {
             y={y}
             width={Math.max(1, barWidth - 4)}
             height={barHeight}
-            fill="#4f7cff"
+            fill="var(--bs-color-accent)"
           >
             <title>{`${String(row[xField])}: ${value}`}</title>
           </rect>
         );
       })}
-      <line x1={PADDING} y1={HEIGHT - PADDING} x2={WIDTH - PADDING} y2={HEIGHT - PADDING} stroke="#8885" />
+      <line
+        x1={PADDING}
+        y1={HEIGHT - PADDING}
+        x2={WIDTH - PADDING}
+        y2={HEIGHT - PADDING}
+        stroke="var(--bs-color-border)"
+      />
     </svg>
   );
 }

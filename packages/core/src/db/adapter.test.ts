@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { ModuleDefinition } from "../modules.js";
+import type { AssetDefinition, ThemeDefinition } from "../theme.js";
 import type { CanvasElement, Entry, Journal } from "../types.js";
 import type { DatabaseAdapter } from "./adapter.js";
 import { IndexedDBAdapter } from "./indexedDbAdapter.js";
@@ -44,6 +45,8 @@ function makeCanvasElement(overrides: Partial<CanvasElement> = {}): CanvasElemen
     width: 200,
     height: 100,
     zIndex: 0,
+    rotation: 0,
+    opacity: 1,
     ...overrides,
   };
 }
@@ -57,6 +60,39 @@ function makeModuleDefinition(overrides: Partial<ModuleDefinition> = {}): Module
     sources: [{ adapterId: "journal", alias: "mood" }],
     transformations: [],
     output: { type: "table", config: {} },
+    ...overrides,
+  };
+}
+
+function makeThemeDefinition(overrides: Partial<ThemeDefinition> = {}): ThemeDefinition {
+  return {
+    id: "theme-1",
+    name: "Test Theme",
+    version: "1.0.0",
+    colors: {
+      background: "#ffffff",
+      surface: "#f5f5f5",
+      text: "#111111",
+      textMuted: "#666666",
+      accent: "#3366ff",
+      border: "#dddddd",
+    },
+    fontFamily: "sans-serif",
+    spacingUnit: 8,
+    cornerRadius: 6,
+    lineThickness: 1,
+    gridStyle: "dot",
+    canvasBackground: { type: "color", value: "#ffffff" },
+    ...overrides,
+  };
+}
+
+function makeAssetDefinition(overrides: Partial<AssetDefinition> = {}): AssetDefinition {
+  return {
+    id: "assets-1",
+    name: "Test Pack",
+    version: "1.0.0",
+    items: [{ id: "star", name: "Star", kind: "sticker", src: "⭐" }],
     ...overrides,
   };
 }
@@ -188,5 +224,31 @@ describe.each(adapters)("%s", (_name, createAdapter) => {
     await adapter.createModuleDefinition(makeModuleDefinition({ id: "m1" }));
     await adapter.deleteModuleDefinition("m1");
     expect(await adapter.listModuleDefinitions()).toHaveLength(0);
+  });
+
+  it("creates and lists installed themes", async () => {
+    await adapter.createThemeDefinition(makeThemeDefinition({ id: "t1" }));
+    await adapter.createThemeDefinition(makeThemeDefinition({ id: "t2", name: "Other" }));
+    const themes = await adapter.listThemeDefinitions();
+    expect(themes.map((t) => t.id).sort()).toEqual(["t1", "t2"]);
+  });
+
+  it("deletes an installed theme", async () => {
+    await adapter.createThemeDefinition(makeThemeDefinition({ id: "t1" }));
+    await adapter.deleteThemeDefinition("t1");
+    expect(await adapter.listThemeDefinitions()).toHaveLength(0);
+  });
+
+  it("creates and lists installed asset packs", async () => {
+    await adapter.createAssetDefinition(makeAssetDefinition({ id: "a1" }));
+    await adapter.createAssetDefinition(makeAssetDefinition({ id: "a2", name: "Other" }));
+    const packs = await adapter.listAssetDefinitions();
+    expect(packs.map((p) => p.id).sort()).toEqual(["a1", "a2"]);
+  });
+
+  it("deletes an installed asset pack", async () => {
+    await adapter.createAssetDefinition(makeAssetDefinition({ id: "a1" }));
+    await adapter.deleteAssetDefinition("a1");
+    expect(await adapter.listAssetDefinitions()).toHaveLength(0);
   });
 });

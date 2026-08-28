@@ -1,4 +1,5 @@
 import type { DataPayload, ModuleDefinition } from "../modules.js";
+import type { AssetDefinition, ThemeDefinition } from "../theme.js";
 import type { CanvasElement, Entry, Journal } from "../types.js";
 
 export interface AdapterCacheEntry {
@@ -34,4 +35,14 @@ export interface DatabaseAdapter {
   createModuleDefinition(moduleDef: ModuleDefinition): Promise<void>;
   listModuleDefinitions(): Promise<ModuleDefinition[]>;
   deleteModuleDefinition(id: string): Promise<void>;
+
+  /** Installed themes (Phase 5.5) -- built-in themes ship in apps/web's registry and never touch this; only imported/custom ones are persisted here. */
+  createThemeDefinition(theme: ThemeDefinition): Promise<void>;
+  listThemeDefinitions(): Promise<ThemeDefinition[]>;
+  deleteThemeDefinition(id: string): Promise<void>;
+
+  /** Installed asset packs (Phase 5.5) -- same split as themes: built-ins ship in the registry, imports land here. */
+  createAssetDefinition(assetDef: AssetDefinition): Promise<void>;
+  listAssetDefinitions(): Promise<AssetDefinition[]>;
+  deleteAssetDefinition(id: string): Promise<void>;
 }

@@ -1,4 +1,4 @@
-import type { CanvasConfig, Entry, Journal, ModuleDefinition, NetworkState } from "@bulletspace/core";
+import type { CanvasConfig, Entry, Journal, ModuleDefinition, NetworkState, ThemeDefinition } from "@bulletspace/core";
 import { type ChangeEvent, type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
 import { AccountPanel } from "./components/AccountPanel";
@@ -14,6 +14,8 @@ import { TagFrequencyModule } from "./components/modules/TagFrequencyModule";
 import { WeatherModule } from "./components/modules/WeatherModule";
 import { NetworkToggle } from "./components/NetworkToggle";
 import { SharedModulesPanel } from "./components/SharedModulesPanel";
+import { ThemeSharePanel } from "./components/ThemeSharePanel";
+import { ThemeSwitcher } from "./components/ThemeSwitcher";
 import { db, ensureDbInitialized } from "./lib/db";
 import { exportJournal } from "./lib/exportFile";
 import { gatekeeper } from "./lib/gatekeeper";
@@ -22,6 +24,8 @@ import { ensureDefaultJournal } from "./lib/journal";
 import { isTauri } from "./lib/platform";
 import { clampRating, parseTags } from "./lib/rating";
 import type { PulledJournal } from "./lib/sync";
+import { applyThemeToDocument, listAllThemes, loadActiveThemeId, saveActiveThemeId } from "./lib/theme";
+import { defaultLightTheme } from "./themes/registry";
 
 function newId(): string {
   return crypto.randomUUID();
@@ -42,6 +46,8 @@ export default function App() {
   const [viewEntryId, setViewEntryId] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [sharedModules, setSharedModules] = useState<ModuleDefinition[]>([]);
+  const [themes, setThemes] = useState<ThemeDefinition[]>([defaultLightTheme]);
+  const [activeThemeId, setActiveThemeId] = useState(defaultLightTheme.id);
   const importInputRef = useRef<HTMLInputElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
@@ -54,6 +60,25 @@ export default function App() {
     setSharedModules(await db.listModuleDefinitions());
   }, []);
 
+  const loadThemes = useCallback(async () => {
+    const all = await listAllThemes();
+    setThemes(all);
+    return all;
+  }, []);
+
+  const handleThemeChange = useCallback((theme: ThemeDefinition) => {
+    setActiveThemeId(theme.id);
+    saveActiveThemeId(theme.id);
+    applyThemeToDocument(theme);
+  }, []);
+
+  const handleThemesChanged = useCallback(async () => {
+    const all = await loadThemes();
+    if (!all.some((theme) => theme.id === activeThemeId)) {
+      handleThemeChange(defaultLightTheme);
+    }
+  }, [loadThemes, activeThemeId, handleThemeChange]);
+
   useEffect(() => {
     (async () => {
       await ensureDbInitialized();
@@ -61,9 +86,16 @@ export default function App() {
       setJournal(active);
       await loadEntries(active.id);
       await loadSharedModules();
+
+      const allThemes = await loadThemes();
+      const persistedId = loadActiveThemeId();
+      const activeTheme = allThemes.find((theme) => theme.id === persistedId) ?? defaultLightTheme;
+      setActiveThemeId(activeTheme.id);
+      applyThemeToDocument(activeTheme);
+
       setReady(true);
     })();
-  }, [loadEntries, loadSharedModules]);
+  }, [loadEntries, loadSharedModules, loadThemes]);
 
   const handleCreateEntry = useCallback(
     async (event: FormEvent) => {
@@ -288,6 +320,7 @@ export default function App() {
             aria-hidden="true"
             onChange={handleImportFileChange}
           />
+          <ThemeSwitcher themes={themes} activeThemeId={activeThemeId} onChange={handleThemeChange} />
           <NetworkToggle state={networkState} onChange={handleNetworkStateChange} />
           <AccountPanel networkState={networkState} journal={journal} entries={entries} onPulled={handleSyncPulled} />
         </div>
@@ -308,6 +341,11 @@ export default function App() {
             entries={entries}
             sharedModules={sharedModules}
             onSharedModulesChange={loadSharedModules}
+          />
+          <ThemeSharePanel
+            themes={themes}
+            activeTheme={themes.find((theme) => theme.id === activeThemeId) ?? defaultLightTheme}
+            onThemesChange={handleThemesChanged}
           />
         </div>
 

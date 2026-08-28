@@ -1,4 +1,5 @@
 import type { ModuleDefinition } from "../modules.js";
+import type { AssetDefinition, ThemeDefinition } from "../theme.js";
 import type { CanvasElement, Entry, Journal } from "../types.js";
 import type { AdapterCacheEntry, DatabaseAdapter } from "./adapter.js";
 
@@ -11,6 +12,8 @@ export class InMemoryAdapter implements DatabaseAdapter {
   private canvasElements = new Map<string, CanvasElement>();
   private adapterCache = new Map<string, AdapterCacheEntry>();
   private moduleDefinitions = new Map<string, ModuleDefinition>();
+  private themeDefinitions = new Map<string, ThemeDefinition>();
+  private assetDefinitions = new Map<string, AssetDefinition>();
 
   async init(): Promise<void> {
     // Nothing to initialize for an in-memory store.
@@ -96,5 +99,29 @@ export class InMemoryAdapter implements DatabaseAdapter {
 
   async deleteModuleDefinition(id: string): Promise<void> {
     this.moduleDefinitions.delete(id);
+  }
+
+  async createThemeDefinition(theme: ThemeDefinition): Promise<void> {
+    this.themeDefinitions.set(theme.id, theme);
+  }
+
+  async listThemeDefinitions(): Promise<ThemeDefinition[]> {
+    return [...this.themeDefinitions.values()];
+  }
+
+  async deleteThemeDefinition(id: string): Promise<void> {
+    this.themeDefinitions.delete(id);
+  }
+
+  async createAssetDefinition(assetDef: AssetDefinition): Promise<void> {
+    this.assetDefinitions.set(assetDef.id, assetDef);
+  }
+
+  async listAssetDefinitions(): Promise<AssetDefinition[]> {
+    return [...this.assetDefinitions.values()];
+  }
+
+  async deleteAssetDefinition(id: string): Promise<void> {
+    this.assetDefinitions.delete(id);
   }
 }

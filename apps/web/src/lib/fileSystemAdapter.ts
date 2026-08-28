@@ -1,10 +1,12 @@
 import type {
   AdapterCacheEntry,
+  AssetDefinition,
   CanvasElement,
   DatabaseAdapter,
   Entry,
   Journal,
   ModuleDefinition,
+  ThemeDefinition,
 } from "@bulletspace/core";
 import { load, type Store } from "@tauri-apps/plugin-store";
 
@@ -24,6 +26,12 @@ function adapterCacheKey(adapterId: string) {
 }
 function moduleDefinitionKey(id: string) {
   return `moduleDefinition:${id}`;
+}
+function themeDefinitionKey(id: string) {
+  return `themeDefinition:${id}`;
+}
+function assetDefinitionKey(id: string) {
+  return `assetDefinition:${id}`;
 }
 
 /**
@@ -132,5 +140,29 @@ export class FileSystemAdapter implements DatabaseAdapter {
 
   async deleteModuleDefinition(id: string): Promise<void> {
     await this.connection.delete(moduleDefinitionKey(id));
+  }
+
+  async createThemeDefinition(theme: ThemeDefinition): Promise<void> {
+    await this.connection.set(themeDefinitionKey(theme.id), theme);
+  }
+
+  async listThemeDefinitions(): Promise<ThemeDefinition[]> {
+    return this.listByPrefix<ThemeDefinition>("themeDefinition:");
+  }
+
+  async deleteThemeDefinition(id: string): Promise<void> {
+    await this.connection.delete(themeDefinitionKey(id));
+  }
+
+  async createAssetDefinition(assetDef: AssetDefinition): Promise<void> {
+    await this.connection.set(assetDefinitionKey(assetDef.id), assetDef);
+  }
+
+  async listAssetDefinitions(): Promise<AssetDefinition[]> {
+    return this.listByPrefix<AssetDefinition>("assetDefinition:");
+  }
+
+  async deleteAssetDefinition(id: string): Promise<void> {
+    await this.connection.delete(assetDefinitionKey(id));
   }
 }

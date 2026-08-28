@@ -1,5 +1,6 @@
 import { type DBSchema, type IDBPDatabase, openDB } from "idb";
 import type { ModuleDefinition } from "../modules.js";
+import type { AssetDefinition, ThemeDefinition } from "../theme.js";
 import type { CanvasElement, Entry, Journal } from "../types.js";
 import type { AdapterCacheEntry, DatabaseAdapter } from "./adapter.js";
 
@@ -26,10 +27,18 @@ interface BulletSpaceDB extends DBSchema {
     key: string;
     value: ModuleDefinition;
   };
+  themeDefinitions: {
+    key: string;
+    value: ThemeDefinition;
+  };
+  assetDefinitions: {
+    key: string;
+    value: AssetDefinition;
+  };
 }
 
 const DEFAULT_DB_NAME = "bulletspace";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 /**
  * Web adapter backed by IndexedDB. Requires a browser (or a browser-like
@@ -63,6 +72,14 @@ export class IndexedDBAdapter implements DatabaseAdapter {
 
         if (!db.objectStoreNames.contains("moduleDefinitions")) {
           db.createObjectStore("moduleDefinitions", { keyPath: "id" });
+        }
+
+        if (!db.objectStoreNames.contains("themeDefinitions")) {
+          db.createObjectStore("themeDefinitions", { keyPath: "id" });
+        }
+
+        if (!db.objectStoreNames.contains("assetDefinitions")) {
+          db.createObjectStore("assetDefinitions", { keyPath: "id" });
         }
       },
     });
@@ -153,5 +170,29 @@ export class IndexedDBAdapter implements DatabaseAdapter {
 
   async deleteModuleDefinition(id: string): Promise<void> {
     await this.connection.delete("moduleDefinitions", id);
+  }
+
+  async createThemeDefinition(theme: ThemeDefinition): Promise<void> {
+    await this.connection.put("themeDefinitions", theme);
+  }
+
+  async listThemeDefinitions(): Promise<ThemeDefinition[]> {
+    return this.connection.getAll("themeDefinitions");
+  }
+
+  async deleteThemeDefinition(id: string): Promise<void> {
+    await this.connection.delete("themeDefinitions", id);
+  }
+
+  async createAssetDefinition(assetDef: AssetDefinition): Promise<void> {
+    await this.connection.put("assetDefinitions", assetDef);
+  }
+
+  async listAssetDefinitions(): Promise<AssetDefinition[]> {
+    return this.connection.getAll("assetDefinitions");
+  }
+
+  async deleteAssetDefinition(id: string): Promise<void> {
+    await this.connection.delete("assetDefinitions", id);
   }
 }

@@ -27,7 +27,7 @@ export interface CanvasConfig {
   scrollY: number;
 }
 
-export type CanvasElementType = "text" | "table" | "chart" | "image" | "embed";
+export type CanvasElementType = "text" | "table" | "chart" | "image" | "embed" | "sticker";
 
 export interface CanvasElement {
   id: string;
@@ -39,4 +39,12 @@ export interface CanvasElement {
   width: number;
   height: number;
   zIndex: number;
+  /**
+   * Added ahead of Phase 6.2's full drag/resize/rotate work, scoped to
+   * exactly what Phase 5.5's sticker placement needs. Every element gets
+   * these now (not sticker-only) so 6.2 extends this shape rather than
+   * migrating it later.
+   */
+  rotation: number;
+  opacity: number;
 }

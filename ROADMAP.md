@@ -437,30 +437,75 @@ still makes zero network calls.
 **Goal:** make themes and visual assets a real, installable concept in the
 app.
 
-- [ ] Theme schema defined — `packages/core/src/types.ts` gains
-      `ThemeDefinition` (colors, fonts, spacing, corner radii, line
-      thicknesses, grid style, canvas background — color/gradient/texture)
-      and `AssetDefinition` (a pack of stickers/icons/fonts, as file
-      references or data URLs)
-- [ ] Theme switcher UI — a dropdown or sidebar listing installed themes;
-      selecting one applies its CSS variables and canvas rendering
-      properties (grid color, background, etc.) immediately
-- [ ] Sticker picker UI — a panel of stickers from installed asset packs;
-      clicking one adds it to the canvas at a default position (center of
-      the current viewport) with basic properties (size, opacity, rotation)
-- [ ] Manual theme sharing — Phase 4's export/import mechanism extended to
-      themes and asset packs: exportable as JSON, importable via the same
-      copy-paste/file-upload interface and validation patterns
-- [ ] Theme persistence — the selected theme is saved to
-      localStorage/IndexedDB and reloaded on startup
-- [ ] Asset registry — installed themes and asset packs are tracked in a
-      registry, and the UI reflects the active theme across modules (chart
-      colors, fonts, etc. all update)
+- [x] Theme schema defined — `packages/core/src/theme.ts`:
+      `ThemeDefinition` (colors, fontFamily, spacingUnit, cornerRadius,
+      lineThickness, gridStyle, canvasBackground — color/gradient/texture)
+      and `AssetDefinition` (a pack of items — sticker/icon/font — each an
+      emoji literal, data URL, or same-origin file reference).
+- [x] Theme switcher UI — `ThemeSwitcher.tsx`, a dropdown listing built-in
+      themes (`apps/web/src/themes/registry.ts`: Default Light, Midnight,
+      Sepia) plus any imported ones. Selecting one calls
+      `applyThemeToDocument`, which sets CSS custom properties
+      (`--bs-color-*`, `--bs-font-family`, `--bs-spacing-unit`,
+      `--bs-corner-radius`, `--bs-line-thickness`, `--bs-canvas-background`)
+      that `index.css`/`App.css` now consume everywhere a color/radius/
+      border-width was previously hardcoded — including the page-level dot
+      grid background and every chart's accent color
+      (`BarChart`/`ScatterChart`/`MoodLineChart`). Verified live via
+      Playwright + screenshots: switching themes visibly changes colors
+      and fonts (Sepia switches to a serif face) instantly, no reload.
+- [x] Sticker picker UI — `StickerPicker.tsx` lists stickers from
+      installed asset packs (`apps/web/src/assets/registry.ts` ships one
+      built-in "Basic Stickers" emoji pack); clicking one places it on the
+      entry canvas at the current viewport's center. **This surfaced a
+      real dependency gap**: `CanvasElement` has had DB CRUD since Phase 0
+      but no UI had ever rendered one back — the "canvas" was purely
+      decorative (dot grid) until now. Built the minimal rendering layer
+      this needed (a second Konva `Layer` in `EntryCanvas.tsx` mapping
+      elements to `Text` nodes) rather than the full drag/resize/rotate
+      system, which stays Phase 6.2's job — this layer is designed for
+      6.2 to extend, not replace. Added `rotation`/`opacity` to
+      `CanvasElement` now (every element gets them, not sticker-only) so
+      6.2 doesn't need a shape migration later. Verified live: placed a
+      sticker, left the canvas view, came back — it reloaded from the
+      database, not component state, and rendered at the expected
+      position (confirmed via screenshot).
+- [x] Manual theme sharing — `ThemeSharePanel.tsx` mirrors
+      `SharedModulesPanel`'s exact copy-paste pattern (Phase 4):
+      `serializeThemeShare`/`parseThemeShare` in
+      `packages/core/src/themeShare.ts` (9 tests). Verified live
+      end-to-end: exported the active theme via clipboard, mutated it
+      into a new custom theme, imported it back, confirmed it appeared in
+      the switcher and actually applied (custom accent color took
+      effect), removed it, confirmed correct fallback to the default
+      theme. Asset packs get the identical `serializeAssetShare`/
+      `parseAssetShare` treatment, though no asset-pack import UI exists
+      yet (themes exercise the identical code path since both are pure
+      data, no adapter-style manifest-only restriction needed).
+- [x] Theme persistence — the active theme id is saved to localStorage
+      and reapplied on startup, before first paint's worth of flicker is
+      avoided since `index.css`'s `:root` defaults already match "Default
+      Light." Verified live: switched to Midnight, reloaded the page,
+      still Midnight.
+- [x] Asset registry — `DatabaseAdapter` gained
+      `create/list/deleteThemeDefinition` and the same trio for
+      `AssetDefinition`, implemented identically across
+      `InMemoryAdapter`/`IndexedDBAdapter` (bumped to schema v4)/
+      `FileSystemAdapter`, with test coverage matching the existing
+      `ModuleDefinition` precedent. Built-ins ship in code
+      (`apps/web/src/themes/registry.ts`, `apps/web/src/assets/registry.ts`)
+      and never touch the database, same split as first-party Adapters
+      vs. imported Modules. "The UI reflects the active theme across
+      modules" is proven concretely, not just claimed: chart accent
+      colors and the page-level grid now read the same CSS variables the
+      switcher sets.
 
 **Success criteria:** installing a theme changes the whole app's look —
-colors, fonts, grid, canvas background — with no reload. A theme or asset
-pack can be exported and re-imported through the same mechanism Phase 4
-already proved for modules.
+colors, fonts, grid, canvas background — with no reload. **Met**, verified
+live with screenshots. A theme or asset pack can be exported and
+re-imported through the same mechanism Phase 4 already proved for
+modules. **Met** for themes, verified live end-to-end; asset-pack sharing
+has the identical serialize/parse logic and tests but no import UI yet.
 
 ## Phase 5.6: Grid & Parallax Enhancements
 

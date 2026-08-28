@@ -39,10 +39,10 @@ export function ScatterChart({ rows, xField, yField }: ScatterChartProps) {
       role="img"
       aria-label={`Scatter chart of ${yField} vs ${xField}`}
     >
-      <line x1={PADDING} y1={HEIGHT - PADDING} x2={WIDTH - PADDING} y2={HEIGHT - PADDING} stroke="#8885" />
-      <line x1={PADDING} y1={PADDING} x2={PADDING} y2={HEIGHT - PADDING} stroke="#8885" />
+      <line x1={PADDING} y1={HEIGHT - PADDING} x2={WIDTH - PADDING} y2={HEIGHT - PADDING} stroke="var(--bs-color-border)" />
+      <line x1={PADDING} y1={PADDING} x2={PADDING} y2={HEIGHT - PADDING} stroke="var(--bs-color-border)" />
       {coords.map((coord, i) => (
-        <circle key={i} cx={coord.cx} cy={coord.cy} r={4} fill="#4f7cff" fillOpacity={0.7}>
+        <circle key={i} cx={coord.cx} cy={coord.cy} r={4} fill="var(--bs-color-accent)" fillOpacity={0.7}>
           <title>{coord.tooltip}</title>
         </circle>
       ))}
