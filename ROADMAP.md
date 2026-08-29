@@ -702,12 +702,75 @@ grid you can see.
       drop; the render list sorts by `zIndex` before mapping, so stacking
       order survives a reload. Verified live: zIndex went 0 → 1 after one
       drag.
-- [ ] Resize handles — not built yet.
-- [ ] Rotation handle — not built yet (the `rotation` field has existed
-      on `CanvasElement` since Phase 5.5, unused until now).
+- [x] Resize handles + rotation handle — Konva's built-in `Transformer`,
+      attached to whichever sticker is clicked (only when Edit Mode is
+      on; clicking empty canvas deselects). Corner anchors only, aspect
+      ratio locked (`keepRatio`) — reasonable for a single glyph, not
+      necessarily right once real photos/modules can resize too.
+      Verified live with exact numbers: a 40×40 mouse drag on the
+      bottom-right anchor took a 48×48 sticker to 88×88 (Δ40, ratio
+      preserved, opposite corner stayed fixed); a rotate-handle sweep
+      landed at persisted rotations of exactly ~45° and ~90°, both
+      surviving a full leave/re-enter of the canvas.
 - [ ] Multi-select — not built yet.
 - [ ] Grouping — not built yet.
 - [ ] Context menu — not built yet.
+
+**Two real bugs found via this live testing, not code review:**
+
+1. Making the sticker resizable/rotatable required wrapping it in a
+   Konva `Group` (so rotation could pivot around its own center via
+   `offsetX`/`offsetY`, rather than the default top-left-corner pivot —
+   caught by literally watching the glyph swing outside its own selection
+   box on the first rotation attempt). The fix's first pass set
+   `listening={false}` on the inner `Text` so only the `Group` would
+   handle clicks/drags — this silently broke selection entirely, because
+   a Group with no listening children has nothing for Konva to hit-test
+   at all. Fixed by leaving the child listening (Konva already bubbles
+   its events up to the group, which is what `draggable`/`onClick` on
+   the Group relies on).
+2. Once selection worked again, the sticker still rendered as
+   completely invisible at any non-zero rotation (confirmed independent
+   of angle — reproduced at both 90° and 45° — and independent of
+   whether the Transformer box was showing, ruling out the box just
+   visually covering it). Root cause: Konva's `Text` breaks when
+   `width`/`height` + `align`/`verticalAlign` are combined with a
+   rotated ancestor `Group` — the text-clipping/alignment box computation
+   silently produces nothing. Fixed by dropping those props on the child
+   and centering it directly via its own `offsetX`/`offsetY` instead
+   (reasonable for a single square glyph; would need a different
+   approach for arbitrary wrapped text later).
+
+**Interaction model, refined mid-implementation (before writing code) —
+three rounds of design discussion, documented here since the reasoning
+matters for anyone implementing further locking later:**
+
+Round 1 proposed a per-module title bar as the drag handle (plus a
+right-click Lock and a toolbar-level Lock All). Round 2 replaced the
+title bar with a **hover bar** (appears on hover, detached above the
+element) since a title bar assumes a rectangular module with a top edge
+to dock into, and modules may end up circular/freeform-shaped once 6.3+
+visual overrides land. Round 3 stepped back further: building per-element
+locking before even testing whether a single global lock is enough is
+"classic over-engineering" — so **ship the simplest version, get real
+usage on it, and only build per-element locking if that usage actually
+demands it.** The hover-bar/per-element-lock design above is deferred, not
+abandoned — it's what Round 3 explicitly said to come back to *if* needed.
+
+- [x] Global Edit Mode toggle — `CanvasConfig.editMode` (boolean,
+      persisted per-page like `snapToGrid`), a toolbar pill button. ON:
+      every element is draggable on its own body, no handle needed
+      (stickers already work this way). OFF: nothing on the page moves —
+      `draggable={canvasConfig.editMode}` on each element, Stage
+      pan/zoom stays independently available either way (locking content
+      shouldn't lock *looking around*). Verified live: with it off, a
+      real mouse drag on a sticker left its position completely
+      unchanged; toggled back on, the identical drag moved and
+      grid-snapped it exactly as before; the toggle's state survived
+      leaving and re-entering the canvas.
+- [ ] Per-element lock, hover bar, Lock All — deferred pending real usage
+      feedback on whether the global toggle alone is sufficient. Design
+      is documented above, ready to build if it turns out to be needed.
 
 **Bug found via testing, not code review**: the canvas background never
 rendered on first load — it only appeared after some pan/zoom action
@@ -733,11 +796,11 @@ shadow) instead of pushing it — matches the Figma-panel aesthetic Phase
 
 **Success criteria:** modules can be freely dragged, resized, rotated,
 layered, grouped, and reordered via context menu, with every property
-surviving a reload. **Partially met**: drag, z-index, and persistence are
-done and verified for stickers; resize, rotation, multi-select, grouping,
-and the context menu are not built. Extending this to actual dashboard
-modules requires first putting them on the canvas at all, which is out of
-this phase's scope as written.
+surviving a reload. **Mostly met for stickers**: drag, snap, z-index,
+persistence, resize, and rotation are all done and verified live;
+multi-select, grouping, and the context menu are not built. Extending
+this to actual dashboard modules requires first putting them on the
+canvas at all, which is out of this phase's scope as written.
 
 ## Phase 6.3: Module Properties Panel
 

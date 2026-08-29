@@ -1,7 +1,7 @@
 import type { AssetItem, CanvasBackground, CanvasConfig, CanvasElement, Entry, GridConfig, ParallaxConfig } from "@bulletspace/core";
 import type Konva from "konva";
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
-import { Layer, Rect, Shape, Stage, Text } from "react-konva";
+import { Group, Layer, Rect, Shape, Stage, Text, Transformer } from "react-konva";
 import { db } from "../lib/db";
 import { texturePatterns } from "../themes/textures";
 import { CanvasSettingsPanel } from "./CanvasSettingsPanel";
@@ -11,6 +11,7 @@ const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 3;
 const ZOOM_STEP = 1.05;
 const STICKER_SIZE = 48;
+const MIN_ELEMENT_SIZE = 16;
 const BACKGROUND_TILE_SIZE = 64;
 const VOID_COLOR = "#d9d9dc";
 
@@ -92,10 +93,13 @@ export function EntryCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const backgroundRef = useRef<HTMLDivElement>(null);
   const photoLayerRef = useRef<HTMLDivElement>(null);
+  const transformerRef = useRef<Konva.Transformer>(null);
+  const elementNodeRefs = useRef<Record<string, Konva.Group>>({});
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [elements, setElements] = useState<CanvasElement[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
 
   const { canvasConfig } = entry;
 
@@ -226,6 +230,16 @@ export function EntryCanvas({
     [canvasConfig, onConfigChange],
   );
 
+  // Global Edit Mode: simplest possible drag-lock, deliberately built
+  // before per-element locking -- ship this, see whether real use ever
+  // actually needs finer-grained locks before building them speculatively.
+  const handleEditModeChange = useCallback(
+    (editMode: boolean) => {
+      onConfigChange({ ...canvasConfig, editMode });
+    },
+    [canvasConfig, onConfigChange],
+  );
+
   // Phase 6.2: snapping happens live during the drag (not just on drop) --
   // dragging a sticker jumps between grid positions as it moves, using the
   // same spacing the visible grid already draws at rather than a second,
@@ -234,15 +248,21 @@ export function EntryCanvas({
     e.target.moveToTop();
   }, []);
 
+  // Elements are positioned/offset so Konva rotates them around their own
+  // center (offsetX/Y = width/2, height/2), not the top-left corner --
+  // node.x()/y() therefore hold the *center* in Konva's world, while
+  // CanvasElement.x/y is stored as the top-left corner throughout the
+  // rest of the app (sticker placement, import/export, etc.); every
+  // read/write of node position converts between the two via the node's
+  // own current offset.
   const handleElementDragMove = useCallback(
     (e: Konva.KonvaEventObject<DragEvent>) => {
       if (!canvasConfig.snapToGrid) return;
       const spacing = canvasConfig.grid.spacing;
       const node = e.target;
-      node.position({
-        x: Math.round(node.x() / spacing) * spacing,
-        y: Math.round(node.y() / spacing) * spacing,
-      });
+      const left = Math.round((node.x() - node.offsetX()) / spacing) * spacing;
+      const top = Math.round((node.y() - node.offsetY()) / spacing) * spacing;
+      node.position({ x: left + node.offsetX(), y: top + node.offsetY() });
     },
     [canvasConfig.snapToGrid, canvasConfig.grid.spacing],
   );
@@ -251,12 +271,82 @@ export function EntryCanvas({
     async (elementId: string, e: Konva.KonvaEventObject<DragEvent>) => {
       const node = e.target;
       const maxZIndex = elements.reduce((max, el) => Math.max(max, el.zIndex), 0);
-      const patch = { x: node.x(), y: node.y(), zIndex: maxZIndex + 1 };
+      const patch = {
+        x: node.x() - node.offsetX(),
+        y: node.y() - node.offsetY(),
+        zIndex: maxZIndex + 1,
+      };
       await db.updateCanvasElement(elementId, patch);
       setElements((prev) => prev.map((el) => (el.id === elementId ? { ...el, ...patch } : el)));
     },
     [elements],
   );
+
+  const handleSelectElement = useCallback(
+    (elementId: string) => {
+      if (!canvasConfig.editMode) return;
+      setSelectedElementId(elementId);
+    },
+    [canvasConfig.editMode],
+  );
+
+  const handleDeselect = useCallback((e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+    if (e.target === e.target.getStage()) {
+      setSelectedElementId(null);
+    }
+  }, []);
+
+  // Konva's Transformer manipulates scaleX/scaleY, not width/height directly
+  // -- the standard fix is to read the effective size off the scale, reset
+  // scale to 1, and persist width/height/rotation directly, so the next
+  // resize starts from a clean 1x scale instead of compounding.
+  const handleElementTransformEnd = useCallback(
+    async (elementId: string, e: Konva.KonvaEventObject<Event>) => {
+      const node = e.target;
+      const scaleX = node.scaleX();
+      const scaleY = node.scaleY();
+      const width = Math.max(MIN_ELEMENT_SIZE, node.width() * scaleX);
+      const height = Math.max(MIN_ELEMENT_SIZE, node.height() * scaleY);
+      node.scaleX(1);
+      node.scaleY(1);
+      node.width(width);
+      node.height(height);
+      node.offsetX(width / 2);
+      node.offsetY(height / 2);
+
+      const patch = {
+        x: node.x() - width / 2,
+        y: node.y() - height / 2,
+        width,
+        height,
+        rotation: node.rotation(),
+      };
+      await db.updateCanvasElement(elementId, patch);
+      setElements((prev) => prev.map((el) => (el.id === elementId ? { ...el, ...patch } : el)));
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const transformer = transformerRef.current;
+    if (!transformer) return;
+
+    if (!canvasConfig.editMode || !selectedElementId) {
+      transformer.nodes([]);
+      transformer.getLayer()?.batchDraw();
+      return;
+    }
+
+    const node = elementNodeRefs.current[selectedElementId];
+    transformer.nodes(node ? [node] : []);
+    transformer.getLayer()?.batchDraw();
+  }, [selectedElementId, canvasConfig.editMode, elements]);
+
+  // Selection (and its resize/rotate handles) only makes sense in Edit
+  // Mode -- deselect immediately if a page gets locked while something's selected.
+  useEffect(() => {
+    if (!canvasConfig.editMode) setSelectedElementId(null);
+  }, [canvasConfig.editMode]);
 
   const dragBoundFunc = useCallback(
     (pos: { x: number; y: number }) => {
@@ -359,6 +449,13 @@ export function EntryCanvas({
         <button type="button" onClick={() => setSettingsOpen((open) => !open)}>
           Canvas Settings
         </button>
+        <button
+          type="button"
+          className={`entry-canvas-edit-toggle ${canvasConfig.editMode ? "is-editing" : "is-locked"}`}
+          onClick={() => handleEditModeChange(!canvasConfig.editMode)}
+        >
+          {canvasConfig.editMode ? "Edit Mode: On" : "Edit Mode: Off (locked)"}
+        </button>
         <span className="entry-canvas-zoom">
           <button type="button" onClick={() => zoomBy(1 / ZOOM_STEP ** 8)}>
             −
@@ -406,6 +503,8 @@ export function EntryCanvas({
             onWheel={handleWheel}
             onDragMove={handleDragMove}
             onDragEnd={handleDragEnd}
+            onClick={handleDeselect}
+            onTap={handleDeselect}
           >
             <Layer listening={false}>
               <Rect
@@ -425,25 +524,49 @@ export function EntryCanvas({
                 .sort((a, b) => a.zIndex - b.zIndex)
                 .map((element) =>
                   element.type === "sticker" ? (
-                    <Text
+                    <Group
                       key={element.id}
-                      x={element.x}
-                      y={element.y}
+                      ref={(node) => {
+                        if (node) elementNodeRefs.current[element.id] = node;
+                        else delete elementNodeRefs.current[element.id];
+                      }}
+                      x={element.x + element.width / 2}
+                      y={element.y + element.height / 2}
+                      offsetX={element.width / 2}
+                      offsetY={element.height / 2}
                       width={element.width}
                       height={element.height}
-                      text={typeof element.content.src === "string" ? element.content.src : ""}
-                      fontSize={element.height}
                       rotation={element.rotation}
                       opacity={element.opacity}
-                      align="center"
-                      verticalAlign="middle"
-                      draggable
+                      draggable={canvasConfig.editMode}
                       onDragStart={handleElementDragStart}
                       onDragMove={handleElementDragMove}
                       onDragEnd={(e) => handleElementDragEnd(element.id, e)}
-                    />
+                      onClick={() => handleSelectElement(element.id)}
+                      onTap={() => handleSelectElement(element.id)}
+                      onTransformEnd={(e) => handleElementTransformEnd(element.id, e)}
+                    >
+                      <Text
+                        x={element.width / 2}
+                        y={element.height / 2}
+                        offsetX={element.width / 2}
+                        offsetY={element.height / 2}
+                        text={typeof element.content.src === "string" ? element.content.src : ""}
+                        fontSize={element.height}
+                      />
+                    </Group>
                   ) : null,
                 )}
+              {canvasConfig.editMode && (
+                <Transformer
+                  ref={transformerRef}
+                  keepRatio
+                  enabledAnchors={["top-left", "top-right", "bottom-left", "bottom-right"]}
+                  boundBoxFunc={(oldBox, newBox) =>
+                    newBox.width < MIN_ELEMENT_SIZE || newBox.height < MIN_ELEMENT_SIZE ? oldBox : newBox
+                  }
+                />
+              )}
             </Layer>
           </Stage>
         )}
