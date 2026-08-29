@@ -333,6 +333,16 @@
   cursor: default;
 }
 
+.entry-canvas-edit-toggle.is-editing {
+  background: var(--bs-color-accent);
+  color: white;
+  border-color: var(--bs-color-accent);
+}
+
+.entry-canvas-edit-toggle.is-locked {
+  color: var(--bs-color-text-muted);
+}
+
 .entry-canvas-zoom {
   display: inline-flex;
   align-items: center;

@@ -33,6 +33,7 @@ function makeEntry(overrides: Partial<Entry> = {}): Entry {
       canvasBackground: { type: "color", value: "#ffffff" },
       parallax: { enabled: true, backgroundSpeed: 0.3, photoSpeed: 0.7 },
       snapToGrid: true,
+      editMode: true,
     },
     mood: null,
     energy: null,

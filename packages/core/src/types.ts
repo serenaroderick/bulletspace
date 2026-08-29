@@ -73,6 +73,14 @@ export interface CanvasConfig {
    * positions don't.
    */
   snapToGrid: boolean;
+  /**
+   * Global drag lock for the whole page. ON: every element is draggable.
+   * OFF: nothing moves, so the page's own content (a button inside a
+   * module, selecting text) can be interacted with safely. Deliberately
+   * simpler than per-element locking -- that's deferred until real usage
+   * shows it's actually needed, rather than built speculatively.
+   */
+  editMode: boolean;
 }
 
 export type CanvasElementType = "text" | "table" | "chart" | "image" | "embed" | "sticker";

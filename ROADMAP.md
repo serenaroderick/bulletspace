@@ -709,6 +709,37 @@ grid you can see.
 - [ ] Grouping — not built yet.
 - [ ] Context menu — not built yet.
 
+**Interaction model, refined mid-implementation (before writing code) —
+three rounds of design discussion, documented here since the reasoning
+matters for anyone implementing further locking later:**
+
+Round 1 proposed a per-module title bar as the drag handle (plus a
+right-click Lock and a toolbar-level Lock All). Round 2 replaced the
+title bar with a **hover bar** (appears on hover, detached above the
+element) since a title bar assumes a rectangular module with a top edge
+to dock into, and modules may end up circular/freeform-shaped once 6.3+
+visual overrides land. Round 3 stepped back further: building per-element
+locking before even testing whether a single global lock is enough is
+"classic over-engineering" — so **ship the simplest version, get real
+usage on it, and only build per-element locking if that usage actually
+demands it.** The hover-bar/per-element-lock design above is deferred, not
+abandoned — it's what Round 3 explicitly said to come back to *if* needed.
+
+- [x] Global Edit Mode toggle — `CanvasConfig.editMode` (boolean,
+      persisted per-page like `snapToGrid`), a toolbar pill button. ON:
+      every element is draggable on its own body, no handle needed
+      (stickers already work this way). OFF: nothing on the page moves —
+      `draggable={canvasConfig.editMode}` on each element, Stage
+      pan/zoom stays independently available either way (locking content
+      shouldn't lock *looking around*). Verified live: with it off, a
+      real mouse drag on a sticker left its position completely
+      unchanged; toggled back on, the identical drag moved and
+      grid-snapped it exactly as before; the toggle's state survived
+      leaving and re-entering the canvas.
+- [ ] Per-element lock, hover bar, Lock All — deferred pending real usage
+      feedback on whether the global toggle alone is sufficient. Design
+      is documented above, ready to build if it turns out to be needed.
+
 **Bug found via testing, not code review**: the canvas background never
 rendered on first load — it only appeared after some pan/zoom action
 happened to trigger it. Root cause: the effect that positions the

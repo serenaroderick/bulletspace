@@ -226,6 +226,16 @@ export function EntryCanvas({
     [canvasConfig, onConfigChange],
   );
 
+  // Global Edit Mode: simplest possible drag-lock, deliberately built
+  // before per-element locking -- ship this, see whether real use ever
+  // actually needs finer-grained locks before building them speculatively.
+  const handleEditModeChange = useCallback(
+    (editMode: boolean) => {
+      onConfigChange({ ...canvasConfig, editMode });
+    },
+    [canvasConfig, onConfigChange],
+  );
+
   // Phase 6.2: snapping happens live during the drag (not just on drop) --
   // dragging a sticker jumps between grid positions as it moves, using the
   // same spacing the visible grid already draws at rather than a second,
@@ -359,6 +369,13 @@ export function EntryCanvas({
         <button type="button" onClick={() => setSettingsOpen((open) => !open)}>
           Canvas Settings
         </button>
+        <button
+          type="button"
+          className={`entry-canvas-edit-toggle ${canvasConfig.editMode ? "is-editing" : "is-locked"}`}
+          onClick={() => handleEditModeChange(!canvasConfig.editMode)}
+        >
+          {canvasConfig.editMode ? "Edit Mode: On" : "Edit Mode: Off (locked)"}
+        </button>
         <span className="entry-canvas-zoom">
           <button type="button" onClick={() => zoomBy(1 / ZOOM_STEP ** 8)}>
             −
@@ -437,7 +454,7 @@ export function EntryCanvas({
                       opacity={element.opacity}
                       align="center"
                       verticalAlign="middle"
-                      draggable
+                      draggable={canvasConfig.editMode}
                       onDragStart={handleElementDragStart}
                       onDragMove={handleElementDragMove}
                       onDragEnd={(e) => handleElementDragEnd(element.id, e)}

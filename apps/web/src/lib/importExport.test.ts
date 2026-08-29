@@ -18,6 +18,7 @@ const entries = [
       canvasBackground: { type: "color" as const, value: "#ffffff" },
       parallax: { enabled: true, backgroundSpeed: 0.3, photoSpeed: 0.7 },
       snapToGrid: true,
+      editMode: true,
     },
     mood: 5,
     energy: null,
