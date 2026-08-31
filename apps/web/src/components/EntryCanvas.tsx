@@ -538,6 +538,8 @@ export function EntryCanvas({
                       height={element.height}
                       rotation={element.rotation}
                       opacity={element.opacity}
+                      align="center"
+                      verticalAlign="middle"
                       draggable={canvasConfig.editMode}
                       onDragStart={handleElementDragStart}
                       onDragMove={handleElementDragMove}
