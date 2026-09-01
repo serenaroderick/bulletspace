@@ -858,71 +858,86 @@ Confirmed direction: journal entries go back to being plain markdown/mood
 entries with no canvas of their own; a new `Board` entity (not tied to any
 `Entry`) is the one and only canvas, greeting you blank, Figma-style.
 
-- [ ] `Board` entity — `packages/core/src/types.ts`: `{ id, name,
-      canvasConfig, createdAt, updatedAt }`. `CanvasConfig` moves off
-      `Entry` onto `Board`; `Entry` loses `canvasConfig` entirely.
-      `CanvasElement.entryId` renamed to `boardId`.
-- [ ] `DatabaseAdapter` gains Board CRUD (`createBoard`/`getBoard`/
+- [x] `Board` entity — `packages/core/src/types.ts`: `{ id, name,
+      canvasConfig, createdAt, updatedAt }`. `CanvasConfig` moved off
+      `Entry` onto `Board`; `Entry` no longer has `canvasConfig`.
+      `CanvasElement.entryId` renamed to `boardId` throughout.
+- [x] `DatabaseAdapter` gained Board CRUD (`createBoard`/`getBoard`/
       `listBoards`/`updateBoard`/`deleteBoard`), same shape as the
       existing Journal/Entry CRUD, implemented across `InMemoryAdapter`,
       `IndexedDBAdapter` (new `boards` store; `canvasElements`'s `entryId`
-      index can't be renamed in place, so this is a real migration, not a
-      purely additive bump — `DB_VERSION` 4→5, `canvasElements` dropped
-      and recreated with a `boardId` index for any pre-v5 database,
-      dropping existing canvas elements on upgrade, which is fine since
-      there's no real user data riding on this yet and a blank canvas is
-      the explicit goal), and `FileSystemAdapter` (new `board:` key
-      prefix, same convention as the rest).
-- [ ] `ensureDefaultBoard()` — `apps/web/src/lib/board.ts`, mirrors
+      index couldn't be renamed in place, so this was a real migration, not
+      a purely additive bump — `DB_VERSION` 4→5, `canvasElements` dropped
+      and recreated with a `boardId` index for any pre-v5 database on
+      upgrade). Verified by a dedicated test
+      (`packages/core/src/db/indexedDbAdapter.migration.test.ts`) that
+      opens a real v4 database with the old entryId-indexed store, then
+      upgrades it via `IndexedDBAdapter` and confirms the new `boardId`
+      index and `boards` store both work post-upgrade — not just that
+      fresh installs work, which the rest of the parity suite alone
+      wouldn't have caught. `FileSystemAdapter` got a matching `board:` key
+      prefix, same convention as the rest.
+- [x] `ensureDefaultBoard()` — `apps/web/src/lib/board.ts`, mirrors
       `ensureDefaultJournal`'s memoized-promise pattern (same StrictMode
-      double-invoke race Phase 3 found for journals applies here too).
-      Exactly one board exists today, auto-created.
-- [ ] `EntryCanvas.tsx` renamed/repurposed to `BoardCanvas.tsx` — drops
+      double-invoke race Phase 3 found for journals applies here too), same
+      test shape as `journal.test.ts` (`board.test.ts`, 3 tests including
+      the concurrent-call race). Exactly one board exists today,
+      auto-created.
+- [x] `EntryCanvas.tsx` renamed/repurposed to `BoardCanvas.tsx` — dropped
       every Entry-pagination prop (`pageIndex`/`pageCount`/`previousEntryId`/
       `nextEntryId`/`onNewPage`/`onDuplicatePage`) and the toolbar UI that
       drove them; takes `{ board, onConfigChange }` instead. Everything
       else (drag/snap/multi-select/group/z-index/context-menu/Transformer/
-      grid/parallax/background) carries forward unchanged, just reading
+      grid/parallax/background) carried forward unchanged, just reading
       `board.canvasConfig` instead of `entry.canvasConfig`.
-- [ ] `CanvasElementType` gains `"module"` (`content: { moduleId }`).
+- [x] `CanvasElementType` gained `"module"` (`content: { moduleId }`).
       `apps/web/src/modules/registry.ts` (mirrors `adapters/registry.ts`/
       `themes/registry.ts`) maps each of the 8 module ids to a label and
       default width/height, gating GitHub/Google Calendar behind
-      `isTauri()` exactly as `App.tsx` does today.
-- [ ] `BoardModuleHost` — the one new wiring component; reads a
-      `BoardContext` (entries/networkState/sharedModules, the same values
-      already threaded to the old `.dashboard` div) and renders the
-      matching module component by id. The 8 module components themselves
-      keep their existing prop signatures untouched.
-- [ ] Module elements render on the canvas via `react-konva-utils`'s
-      `Html` (new dependency — nothing in this repo currently syncs real
-      DOM content to a Konva node's transform; hand-rolling that math is
-      exactly the kind of thing Phase 5.6's parallax notes already flagged
-      as easy to get subtly wrong), nested inside the same draggable
-      `Group` stickers already use — `Html` is a rendering mechanism only,
-      it adds no new interaction code on top of the drag/select/multi-
-      select/group/context-menu machinery Phase 6.2 already built.
-- [ ] `Transformer` gets two new conditionals for mixed selections:
+      `isTauri()` exactly as `App.tsx` did before.
+- [x] `BoardModuleHost` — the one new wiring component; reads a
+      `BoardContext` (`entries`/`networkState`, the same values already
+      threaded to the old `.dashboard` div — turned out `sharedModules`
+      wasn't actually needed by any of the 8, so it stayed out of the
+      context) and renders the matching module component by id. The 8
+      module components themselves kept their existing prop signatures
+      untouched.
+- [x] Module elements render on the canvas via `react-konva-utils`'s
+      `Html` (new dependency — nothing in this repo previously synced real
+      DOM content to a Konva node's transform), nested inside the same
+      draggable `Group` stickers already use — `Html` is a rendering
+      mechanism only, it added no new interaction code on top of the
+      drag/select/multi-select/group/context-menu machinery Phase 6.2
+      already built. `.module`'s CSS was adjusted to fill its container
+      (`height: 100%`, `overflow: auto`) since it's no longer a naturally-
+      sized flex item in a static list.
+- [x] `Transformer` gained two conditionals for mixed selections:
       `keepRatio` only when every selected element is a sticker (modules
-      need free-aspect resize); `rotateEnabled` likewise sticker-only
+      get free-aspect resize); `rotateEnabled` likewise sticker-only
       (rotating an interactive form/button module doesn't make sense).
-- [ ] "Add Module" toolbar button/palette, structurally identical to the
-      existing sticker picker, listing `MODULE_REGISTRY` and placing a
-      new module element at the viewport center.
-- [ ] `App.tsx` — the static `.dashboard` div and the `openEntry`/
-      `EntryCanvas` branch are both removed; `BoardCanvas` for the single
-      default board renders in that slot instead, above the (unchanged)
-      entry-creation form and entry list. `handleNewPage`/
+- [x] "Add Module" toolbar button/palette (`ModulePicker.tsx`), structurally
+      identical to the existing sticker picker, listing `MODULE_REGISTRY`
+      and placing a new module element at the viewport center.
+- [x] `App.tsx` — the static `.dashboard` div and the `openEntry`/
+      `EntryCanvas` branch were both removed; `BoardCanvas` for the single
+      default board renders full-bleed (a CSS breakout out of the app's
+      normally-720px-max-width column, since the board is meant to
+      dominate as the "greeted with a blank canvas" home screen) above the
+      unchanged entry-creation form and entry list. `handleNewPage`/
       `handleDuplicatePage`/`handleEntryCanvasConfigChange` and the "Open
-      canvas" button are deleted along with them.
+      canvas" button were deleted along with them.
 
 **Success criteria:** the app opens to a blank Figma-style board; "Add
 Module" places any of the 8 dashboard modules onto it; modules and
 stickers can be freely dragged, resized (free-aspect for modules, locked
 for stickers), multi-selected, and grouped together; right-clicking a
 module or sticker shows the working context menu; layout survives a
-reload. `pnpm typecheck`/`pnpm test` pass, including the `IndexedDBAdapter`
-v4→v5 upgrade path.
+reload. **Met on the automated side**: `pnpm typecheck`/`pnpm test` pass
+(120 tests), including the `IndexedDBAdapter` v4→v5 upgrade path and a
+production `pnpm build`. **Live-verification in progress** — no browser-
+automation tool was available this session, so this was confirmed only by
+the user clicking through the running dev server directly, not screenshot-
+verified the way earlier phases were.
 
 ## Phase 6.2.6: Multiple Boards (deferred)
 

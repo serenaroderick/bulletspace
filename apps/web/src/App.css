@@ -61,6 +61,19 @@
   background: var(--bs-color-surface);
 }
 
+/* A module's Html overlay (BoardCanvas.tsx) sets pointer-events: none on
+   itself so drag/click/context-menu on the module's body reaches the
+   Konva Group underneath -- these re-enable it on the controls a module
+   actually needs to be clickable, without which "none" would make them
+   inert too. */
+.module button,
+.module input,
+.module select,
+.module textarea,
+.module a {
+  pointer-events: auto;
+}
+
 .module h3 {
   font-size: 0.9rem;
   margin: 0 0 0.5rem;
@@ -309,17 +322,17 @@
    meant to dominate as the "greeted with a blank canvas" home screen --
    this classic negative-margin trick lets it span the full viewport
    width without restructuring the rest of the page around it. */
+/* The only view in the app now -- journaling, sharing, and themes all
+   live on it as modules (BoardModuleHost) rather than a separate page,
+   so this fills essentially the whole viewport below the header. */
 .board-canvas {
   display: flex;
   flex-direction: column;
-  height: 70vh;
+  height: calc(100vh - 100px);
   width: 100vw;
   position: relative;
   left: 50%;
-  right: 50%;
   margin-left: -50vw;
-  margin-right: -50vw;
-  margin-bottom: 2rem;
 }
 
 .board-canvas-toolbar {

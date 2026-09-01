@@ -1,9 +1,17 @@
-import type { Entry, NetworkState } from "@bulletspace/core";
+import type { Entry, Journal, ModuleDefinition, NetworkState, ThemeDefinition } from "@bulletspace/core";
 import { createContext, type ReactNode, useContext } from "react";
 
 export interface BoardContextValue {
   entries: Entry[];
   networkState: NetworkState;
+  journal: Journal;
+  onEntriesChanged: () => void;
+  onOpenEntry: (entryId: string) => void;
+  sharedModules: ModuleDefinition[];
+  onSharedModulesChange: () => void;
+  themes: ThemeDefinition[];
+  activeTheme: ThemeDefinition;
+  onThemesChange: () => void;
 }
 
 const BoardContext = createContext<BoardContextValue | null>(null);

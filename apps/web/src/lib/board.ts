@@ -13,7 +13,7 @@ let defaultBoardPromise: Promise<Board> | null = null;
  * double-invoke (or any other concurrent caller) could otherwise race two
  * "no board exists yet" checks into creating duplicates.
  */
-export function ensureDefaultBoard(adapter: DatabaseAdapter): Promise<Board> {
+export function ensureDefaultBoard(adapter: DatabaseAdapter, defaultBackgroundColor?: string): Promise<Board> {
   if (!defaultBoardPromise) {
     defaultBoardPromise = (async () => {
       const boards = await adapter.listBoards();
@@ -23,7 +23,7 @@ export function ensureDefaultBoard(adapter: DatabaseAdapter): Promise<Board> {
       const created: Board = {
         id: newId(),
         name: "Dashboard",
-        canvasConfig: defaultCanvasConfig(),
+        canvasConfig: defaultCanvasConfig(defaultBackgroundColor),
         createdAt: now,
         updatedAt: now,
       };

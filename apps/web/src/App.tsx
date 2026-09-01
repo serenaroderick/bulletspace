@@ -1,13 +1,11 @@
 import type { Board, CanvasConfig, Entry, Journal, ModuleDefinition, NetworkState, ThemeDefinition } from "@bulletspace/core";
-import { type ChangeEvent, type FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
 import { AccountPanel } from "./components/AccountPanel";
 import { BoardCanvas } from "./components/BoardCanvas";
 import { BoardContextProvider } from "./components/BoardContext";
 import { EntryView } from "./components/EntryView";
 import { NetworkToggle } from "./components/NetworkToggle";
-import { SharedModulesPanel } from "./components/SharedModulesPanel";
-import { ThemeSharePanel } from "./components/ThemeSharePanel";
 import { ThemeSwitcher } from "./components/ThemeSwitcher";
 import { ensureDefaultBoard } from "./lib/board";
 import { db, ensureDbInitialized } from "./lib/db";
@@ -16,7 +14,6 @@ import { gatekeeper } from "./lib/gatekeeper";
 import { parseJournalExport } from "./lib/importExport";
 import { ensureDefaultJournal } from "./lib/journal";
 import { isTauri } from "./lib/platform";
-import { clampRating, parseTags } from "./lib/rating";
 import type { PulledJournal } from "./lib/sync";
 import { applyThemeToDocument, listAllThemes, loadActiveThemeId, saveActiveThemeId } from "./lib/theme";
 import { defaultLightTheme } from "./themes/registry";
@@ -31,19 +28,12 @@ export default function App() {
   const [board, setBoard] = useState<Board | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [networkState, setNetworkState] = useState<NetworkState>(gatekeeper.getState());
-  const [draftTitle, setDraftTitle] = useState("");
-  const [draftContent, setDraftContent] = useState("");
-  const [draftMood, setDraftMood] = useState("");
-  const [draftEnergy, setDraftEnergy] = useState("");
-  const [draftFocus, setDraftFocus] = useState("");
-  const [draftTags, setDraftTags] = useState("");
   const [viewEntryId, setViewEntryId] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [sharedModules, setSharedModules] = useState<ModuleDefinition[]>([]);
   const [themes, setThemes] = useState<ThemeDefinition[]>([defaultLightTheme]);
   const [activeTheme, setActiveTheme] = useState<ThemeDefinition>(defaultLightTheme);
   const importInputRef = useRef<HTMLInputElement>(null);
-  const titleInputRef = useRef<HTMLInputElement>(null);
 
   const loadEntries = useCallback(async (journalId: string) => {
     const loaded = await db.listEntriesByJournal(journalId);
@@ -81,59 +71,25 @@ export default function App() {
       await loadEntries(active.id);
       await loadSharedModules();
 
-      const activeBoard = await ensureDefaultBoard(db);
-      setBoard(activeBoard);
-
       const allThemes = await loadThemes();
       const persistedId = loadActiveThemeId();
       const persistedTheme = allThemes.find((theme) => theme.id === persistedId) ?? defaultLightTheme;
       setActiveTheme(persistedTheme);
       applyThemeToDocument(persistedTheme);
 
+      // Only matters the very first time a board is ever created -- after
+      // that it's a genuinely independent per-board setting (Canvas
+      // Settings -> Background), this just avoids a mismatched default.
+      const activeBoard = await ensureDefaultBoard(db, persistedTheme.colors.background);
+      setBoard(activeBoard);
+
       setReady(true);
     })();
   }, [loadEntries, loadSharedModules, loadThemes]);
 
-  const handleCreateEntry = useCallback(
-    async (event: FormEvent) => {
-      event.preventDefault();
-      if (!journal || !draftTitle.trim()) return;
-
-      const now = Date.now();
-      const entry: Entry = {
-        id: newId(),
-        journalId: journal.id,
-        title: draftTitle.trim(),
-        content: draftContent,
-        mood: clampRating(draftMood),
-        energy: clampRating(draftEnergy),
-        focus: clampRating(draftFocus),
-        tags: parseTags(draftTags),
-        createdAt: now,
-        updatedAt: now,
-      };
-
-      await db.createEntry(entry);
-      setDraftTitle("");
-      setDraftContent("");
-      setDraftMood("");
-      setDraftEnergy("");
-      setDraftFocus("");
-      setDraftTags("");
-      await loadEntries(journal.id);
-    },
-    [journal, draftTitle, draftContent, draftMood, draftEnergy, draftFocus, draftTags, loadEntries],
-  );
-
-  const handleDeleteEntry = useCallback(
-    async (id: string, title: string) => {
-      if (!journal) return;
-      if (!window.confirm(`Delete "${title}"? This can't be undone.`)) return;
-      await db.deleteEntry(id);
-      await loadEntries(journal.id);
-    },
-    [journal, loadEntries],
-  );
+  const handleEntriesChanged = useCallback(() => {
+    if (journal) loadEntries(journal.id);
+  }, [journal, loadEntries]);
 
   const handleNetworkStateChange = useCallback((state: NetworkState) => {
     gatekeeper.setState(state);
@@ -219,9 +175,13 @@ export default function App() {
     [journal, entries, loadEntries],
   );
 
-  // Native menu items (File > New Entry / Export / Import) emit these same
-  // event names from the Rust side -- see apps/desktop/src-tauri/src/lib.rs.
-  // Only relevant on desktop; a plain browser tab never receives them.
+  // Native menu items (File > Export/Import) emit these same event names
+  // from the Rust side -- see apps/desktop/src-tauri/src/lib.rs. Only
+  // relevant on desktop; a plain browser tab never receives them. "New
+  // Entry" used to focus the title field directly, back when the entry
+  // form always had a fixed spot on the page -- now that journaling is a
+  // Journal module that may or may not be on the board, there's no longer
+  // a reliable element to focus, so that shortcut's effect is gone with it.
   useEffect(() => {
     if (!isTauri()) return;
 
@@ -229,7 +189,6 @@ export default function App() {
     (async () => {
       const { listen } = await import("@tauri-apps/api/event");
       unlistenFns = await Promise.all([
-        listen("new_entry", () => titleInputRef.current?.focus()),
         listen("export_json", () => handleExport()),
         listen("import_json", () => importInputRef.current?.click()),
       ]);
@@ -314,81 +273,22 @@ export default function App() {
       </header>
       {importError && <p className="import-error">{importError}</p>}
 
-      <main className="app-main">
-        <BoardContextProvider value={{ entries, networkState }}>
-          <BoardCanvas board={board} onConfigChange={handleBoardConfigChange} />
-        </BoardContextProvider>
-
-        <SharedModulesPanel entries={entries} sharedModules={sharedModules} onSharedModulesChange={loadSharedModules} />
-        <ThemeSharePanel themes={themes} activeTheme={activeTheme} onThemesChange={handleThemesChanged} />
-
-        <form className="entry-form" onSubmit={handleCreateEntry}>
-          <input
-            ref={titleInputRef}
-            value={draftTitle}
-            onChange={(event) => setDraftTitle(event.target.value)}
-            placeholder="Entry title"
-            aria-label="Entry title"
-          />
-          <textarea
-            value={draftContent}
-            onChange={(event) => setDraftContent(event.target.value)}
-            placeholder="Write in Markdown…"
-            rows={4}
-            aria-label="Entry content"
-          />
-          <div className="rating-inputs">
-            <input
-              value={draftMood}
-              onChange={(event) => setDraftMood(event.target.value)}
-              placeholder="Mood (1-10)"
-              aria-label="Entry mood"
-              type="number"
-            />
-            <input
-              value={draftEnergy}
-              onChange={(event) => setDraftEnergy(event.target.value)}
-              placeholder="Energy (1-10)"
-              aria-label="Entry energy"
-              type="number"
-            />
-            <input
-              value={draftFocus}
-              onChange={(event) => setDraftFocus(event.target.value)}
-              placeholder="Focus (1-10)"
-              aria-label="Entry focus"
-              type="number"
-            />
-          </div>
-          <input
-            value={draftTags}
-            onChange={(event) => setDraftTags(event.target.value)}
-            placeholder="Tags, comma-separated (optional)"
-            aria-label="Entry tags"
-          />
-          <button type="submit">Add entry</button>
-        </form>
-
-        <ul className="entry-list">
-          {entries.map((entry) => (
-            <li key={entry.id} className="entry">
-              <button type="button" className="entry-title" onClick={() => setViewEntryId(entry.id)}>
-                {entry.title}
-              </button>
-              <pre className="entry-content">{entry.content}</pre>
-              <div className="entry-actions">
-                <button type="button" onClick={() => setViewEntryId(entry.id)}>
-                  Open
-                </button>
-                <button type="button" onClick={() => handleDeleteEntry(entry.id, entry.title)}>
-                  Delete
-                </button>
-              </div>
-            </li>
-          ))}
-          {entries.length === 0 && <li className="empty">No entries yet.</li>}
-        </ul>
-      </main>
+      <BoardContextProvider
+        value={{
+          entries,
+          networkState,
+          journal,
+          onEntriesChanged: handleEntriesChanged,
+          onOpenEntry: setViewEntryId,
+          sharedModules,
+          onSharedModulesChange: loadSharedModules,
+          themes,
+          activeTheme,
+          onThemesChange: handleThemesChanged,
+        }}
+      >
+        <BoardCanvas board={board} onConfigChange={handleBoardConfigChange} />
+      </BoardContextProvider>
     </div>
   );
 }

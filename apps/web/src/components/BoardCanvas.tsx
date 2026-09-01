@@ -17,7 +17,11 @@ const ZOOM_STEP = 1.05;
 const STICKER_SIZE = 48;
 const MIN_ELEMENT_SIZE = 16;
 const BACKGROUND_TILE_SIZE = 64;
-const VOID_COLOR = "#d9d9dc";
+// The area outside the bounded page -- distinct from the page's own
+// canvasBackground (deliberately theme-independent, see CanvasConfig's
+// doc comment), but this outer void should still follow the active
+// theme, not stay a fixed light gray when e.g. Midnight is active.
+const VOID_COLOR = "var(--bs-color-border)";
 
 function newElementId(): string {
   return crypto.randomUUID();
@@ -744,7 +748,31 @@ export function BoardCanvas({ board, onConfigChange }: BoardCanvasProps) {
                   if (element.type === "module") {
                     return (
                       <Group key={element.id} {...commonHandlers}>
-                        <Html divProps={{ style: { width: element.width, height: element.height, zIndex: 10 + element.zIndex } }}>
+                        {/* Html draws nothing on the actual Konva canvas -- it's a pure
+                            DOM overlay -- so without a real Shape here, Konva's hit
+                            graph has nothing at this position and drag/click/context-
+                            menu would never reach the Group at all. This Rect is
+                            invisible (fill "transparent" still gets hit-tested; only
+                            listening={false} would skip it) but gives Konva real
+                            geometry to route pointer events to. */}
+                        <Rect x={0} y={0} width={element.width} height={element.height} fill="transparent" />
+                        {/* pointerEvents: none on the overlay itself is what lets drag/
+                            click/context-menu on the module's body reach the Konva Group
+                            underneath at all -- without it, this div (being real DOM,
+                            not canvas pixels) swallows every pointer event over its full
+                            width/height before Konva ever sees it. .module's CSS
+                            re-enables pointer-events on the actual interactive controls
+                            (buttons/inputs/etc.) inside, so those keep working. */}
+                        <Html
+                          divProps={{
+                            style: {
+                              width: element.width,
+                              height: element.height,
+                              zIndex: 10 + element.zIndex,
+                              pointerEvents: "none",
+                            },
+                          }}
+                        >
                           <BoardModuleHost moduleId={element.content.moduleId as ModuleId} />
                         </Html>
                       </Group>
@@ -758,7 +786,13 @@ export function BoardCanvas({ board, onConfigChange }: BoardCanvasProps) {
                   ref={transformerRef}
                   keepRatio={onlyStickersSelected}
                   rotateEnabled={onlyStickersSelected}
-                  enabledAnchors={["top-left", "top-right", "bottom-left", "bottom-right"]}
+                  // Resize is sticker/photo-only for now (modules resize the
+                  // bounding box without their content actually adapting to
+                  // it yet -- revisit once modules have real responsive
+                  // layout). Empty anchors means the selection outline still
+                  // shows (so drag/group selection stays visible) but there's
+                  // nothing to grab.
+                  enabledAnchors={onlyStickersSelected ? ["top-left", "top-right", "bottom-left", "bottom-right"] : []}
                   boundBoxFunc={(oldBox, newBox) =>
                     newBox.width < MIN_ELEMENT_SIZE || newBox.height < MIN_ELEMENT_SIZE ? oldBox : newBox
                   }

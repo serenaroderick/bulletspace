@@ -20,7 +20,15 @@ export const pageSizePresets: PageSizePreset[] = [
   { id: "a3", name: "A3", width: 842, height: 1191 },
 ];
 
-export function defaultCanvasConfig(): CanvasConfig {
+/**
+ * `backgroundColor` seeds a sensible first impression (matching the active
+ * theme when a board is first created) -- the canvas background stays a
+ * genuinely independent, per-board setting after that (Canvas Settings ->
+ * Background), not something that keeps following theme changes. A
+ * physical journal page doesn't recolor itself when you change the app's
+ * chrome; this only avoids a jarringly mismatched *default*.
+ */
+export function defaultCanvasConfig(backgroundColor = "#ffffff"): CanvasConfig {
   const freeform = pageSizePresets[0];
   return {
     width: freeform.width,
@@ -29,7 +37,7 @@ export function defaultCanvasConfig(): CanvasConfig {
     scrollX: 0,
     scrollY: 0,
     grid: { style: "dot", spacing: 24, color: "#dddddd", opacity: 0.7 },
-    canvasBackground: { type: "color", value: "#ffffff" },
+    canvasBackground: { type: "color", value: backgroundColor },
     parallax: { enabled: true, backgroundSpeed: 0.3, photoSpeed: 0.7 },
     snapToGrid: true,
     editMode: true,

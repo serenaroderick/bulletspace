@@ -12,7 +12,10 @@ export type ModuleId =
   | "mood-vs-weather"
   | "weather"
   | "github"
-  | "google-calendar";
+  | "google-calendar"
+  | "journal"
+  | "shared-modules"
+  | "theme-share";
 
 export interface ModuleRegistryEntry {
   id: ModuleId;
@@ -38,6 +41,9 @@ export const MODULE_REGISTRY: Record<ModuleId, ModuleRegistryEntry> = {
     defaultHeight: 320,
     requiresTauri: true,
   },
+  journal: { id: "journal", label: "Journal", defaultWidth: 420, defaultHeight: 480 },
+  "shared-modules": { id: "shared-modules", label: "Import a Shared Module", defaultWidth: 380, defaultHeight: 320 },
+  "theme-share": { id: "theme-share", label: "Themes", defaultWidth: 380, defaultHeight: 320 },
 };
 
 export const MODULE_REGISTRY_LIST: ModuleRegistryEntry[] = Object.values(MODULE_REGISTRY);
