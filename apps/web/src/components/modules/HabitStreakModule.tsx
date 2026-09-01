@@ -1,6 +1,6 @@
 import type { Entry } from "@bulletspace/core";
 
-const DAYS_TO_SHOW = 30;
+const DEFAULT_DAYS_TO_SHOW = 30;
 const DAY_MS = 86_400_000;
 
 function startOfDay(timestamp: number): number {
@@ -11,14 +11,16 @@ function startOfDay(timestamp: number): number {
 
 interface HabitStreakModuleProps {
   entries: Entry[];
+  /** Configurable via the module's properties panel -- see ModulePropertiesPanel.tsx. */
+  daysToShow?: number;
 }
 
-export function HabitStreakModule({ entries }: HabitStreakModuleProps) {
+export function HabitStreakModule({ entries, daysToShow = DEFAULT_DAYS_TO_SHOW }: HabitStreakModuleProps) {
   const daysWithEntries = new Set(entries.map((entry) => startOfDay(entry.createdAt)));
   const today = startOfDay(Date.now());
   const days = Array.from(
-    { length: DAYS_TO_SHOW },
-    (_, i) => today - (DAYS_TO_SHOW - 1 - i) * DAY_MS,
+    { length: daysToShow },
+    (_, i) => today - (daysToShow - 1 - i) * DAY_MS,
   );
 
   let streak = 0;

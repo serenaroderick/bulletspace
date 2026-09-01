@@ -31,11 +31,19 @@ const MODULE_DEF = MOOD_VS_WEATHER_MODULE_DEF;
 
 interface MoodVsWeatherModuleProps {
   entries: Entry[];
+  /**
+   * Controlled from the properties panel (CanvasElement.content.view) so it
+   * survives a reload -- previously this was local state that reset every
+   * time the module remounted. onViewChange is always provided by
+   * BoardModuleHost; the fallback only matters if this is ever rendered
+   * outside that context.
+   */
+  view?: "chart" | "table";
+  onViewChange?: (view: "chart" | "table") => void;
 }
 
-export function MoodVsWeatherModule({ entries }: MoodVsWeatherModuleProps) {
+export function MoodVsWeatherModule({ entries, view = "chart", onViewChange = () => {} }: MoodVsWeatherModuleProps) {
   const [payload, setPayload] = useState<DataPayload | null>(null);
-  const [view, setView] = useState<"chart" | "table">("chart");
   const [copied, setCopied] = useState(false);
 
   const handleShare = useCallback(async () => {
@@ -73,14 +81,14 @@ export function MoodVsWeatherModule({ entries }: MoodVsWeatherModuleProps) {
             <button
               type="button"
               className={view === "chart" ? "active" : ""}
-              onClick={() => setView("chart")}
+              onClick={() => onViewChange("chart")}
             >
               Chart
             </button>
             <button
               type="button"
               className={view === "table" ? "active" : ""}
-              onClick={() => setView("table")}
+              onClick={() => onViewChange("table")}
             >
               Table
             </button>

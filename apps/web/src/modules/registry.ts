@@ -15,7 +15,8 @@ export type ModuleId =
   | "google-calendar"
   | "journal"
   | "shared-modules"
-  | "theme-share";
+  | "theme-share"
+  | "tracker";
 
 export interface ModuleRegistryEntry {
   id: ModuleId;
@@ -44,6 +45,19 @@ export const MODULE_REGISTRY: Record<ModuleId, ModuleRegistryEntry> = {
   journal: { id: "journal", label: "Journal", defaultWidth: 420, defaultHeight: 480 },
   "shared-modules": { id: "shared-modules", label: "Import a Shared Module", defaultWidth: 380, defaultHeight: 320 },
   "theme-share": { id: "theme-share", label: "Themes", defaultWidth: 380, defaultHeight: 320 },
+  tracker: { id: "tracker", label: "Tracker", defaultWidth: 420, defaultHeight: 320 },
 };
 
 export const MODULE_REGISTRY_LIST: ModuleRegistryEntry[] = Object.values(MODULE_REGISTRY);
+
+/**
+ * Phase 6.3 ("light config" scope): only modules with a real, already-
+ * existing hardcoded constant worth exposing get a properties panel --
+ * not invented settings. Everything else has nothing to configure, so
+ * selecting it shows no panel at all.
+ */
+export const CONFIGURABLE_MODULE_IDS: ReadonlySet<ModuleId> = new Set([
+  "habit-streak",
+  "tag-frequency",
+  "mood-vs-weather",
+]);

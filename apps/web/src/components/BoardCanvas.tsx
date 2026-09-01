@@ -4,11 +4,12 @@ import { type CSSProperties, useCallback, useEffect, useRef, useState } from "re
 import { Group, Layer, Rect, Shape, Stage, Text, Transformer } from "react-konva";
 import { Html } from "react-konva-utils";
 import { db } from "../lib/db";
-import type { ModuleId, ModuleRegistryEntry } from "../modules/registry";
+import { CONFIGURABLE_MODULE_IDS, type ModuleId, type ModuleRegistryEntry } from "../modules/registry";
 import { texturePatterns } from "../themes/textures";
 import { BoardModuleHost } from "./BoardModuleHost";
 import { CanvasSettingsPanel } from "./CanvasSettingsPanel";
 import { ModulePicker } from "./ModulePicker";
+import { ModulePropertiesPanel } from "./ModulePropertiesPanel";
 import { StickerPicker } from "./StickerPicker";
 
 const MIN_ZOOM = 0.1;
@@ -455,6 +456,28 @@ export function BoardCanvas({ board, onConfigChange }: BoardCanvasProps) {
   // only apply when every selected element is a sticker.
   const onlyStickersSelected = selectedElements.every((el) => el.type === "sticker");
 
+  // The properties panel only ever targets a single, configurable module --
+  // multi-select and stickers/other module types show no panel at all,
+  // since there's genuinely nothing to configure for them yet (Phase 6.3's
+  // deliberately narrow "light config" scope).
+  const propertiesPanelElement =
+    selectedElements.length === 1 &&
+    selectedElements[0].type === "module" &&
+    CONFIGURABLE_MODULE_IDS.has(selectedElements[0].content.moduleId as ModuleId)
+      ? selectedElements[0]
+      : null;
+
+  const handleModuleConfigChange = useCallback(
+    async (elementId: string, patch: Record<string, unknown>) => {
+      const target = elements.find((el) => el.id === elementId);
+      if (!target) return;
+      const content = { ...target.content, ...patch };
+      await db.updateCanvasElement(elementId, { content });
+      setElements((prev) => prev.map((el) => (el.id === elementId ? { ...el, content } : el)));
+    },
+    [elements],
+  );
+
   const handleGroupSelected = useCallback(async () => {
     if (selectedElementIds.length < 2) return;
     const groupId = newGroupId();
@@ -672,6 +695,16 @@ export function BoardCanvas({ board, onConfigChange }: BoardCanvasProps) {
             />
           </div>
         )}
+        {propertiesPanelElement && (
+          <div className="board-canvas-floating-panel board-canvas-floating-panel-right">
+            <ModulePropertiesPanel
+              moduleId={propertiesPanelElement.content.moduleId as ModuleId}
+              content={propertiesPanelElement.content}
+              onChange={(patch) => handleModuleConfigChange(propertiesPanelElement.id, patch)}
+              onClose={() => setSelectedElementIds([])}
+            />
+          </div>
+        )}
         {size.width > 0 && size.height > 0 && (
           <Stage
             ref={stageRef}
@@ -773,7 +806,11 @@ export function BoardCanvas({ board, onConfigChange }: BoardCanvasProps) {
                             },
                           }}
                         >
-                          <BoardModuleHost moduleId={element.content.moduleId as ModuleId} />
+                          <BoardModuleHost
+                            moduleId={element.content.moduleId as ModuleId}
+                            content={element.content}
+                            onConfigChange={(patch) => handleModuleConfigChange(element.id, patch)}
+                          />
                         </Html>
                       </Group>
                     );

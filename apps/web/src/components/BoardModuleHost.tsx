@@ -8,6 +8,7 @@ import { JournalModule } from "./modules/JournalModule";
 import { MoodLineChart } from "./modules/MoodLineChart";
 import { MoodVsWeatherModule } from "./modules/MoodVsWeatherModule";
 import { TagFrequencyModule } from "./modules/TagFrequencyModule";
+import { type TrackerChecked, type TrackerColumn, type TrackerRow, TrackerModule } from "./modules/TrackerModule";
 import { WeatherModule } from "./modules/WeatherModule";
 import { SharedModulesPanel } from "./SharedModulesPanel";
 import { ThemeSharePanel } from "./ThemeSharePanel";
@@ -21,7 +22,14 @@ import { ThemeSharePanel } from "./ThemeSharePanel";
  * stopped being a separate page (see App.tsx) -- everything lives on the
  * one board now, nothing is a fixed second view.
  */
-export function BoardModuleHost({ moduleId }: { moduleId: ModuleId }) {
+interface BoardModuleHostProps {
+  moduleId: ModuleId;
+  /** Only read by the handful of modules with a properties panel (see ModulePropertiesPanel.tsx) -- everything else ignores it. */
+  content: Record<string, unknown>;
+  onConfigChange: (patch: Record<string, unknown>) => void;
+}
+
+export function BoardModuleHost({ moduleId, content, onConfigChange }: BoardModuleHostProps) {
   const {
     entries,
     networkState,
@@ -37,15 +45,28 @@ export function BoardModuleHost({ moduleId }: { moduleId: ModuleId }) {
 
   switch (moduleId) {
     case "habit-streak":
-      return <HabitStreakModule entries={entries} />;
+      return (
+        <HabitStreakModule
+          entries={entries}
+          daysToShow={typeof content.daysToShow === "number" ? content.daysToShow : undefined}
+        />
+      );
     case "mood-line":
       return <MoodLineChart entries={entries} />;
     case "energy-focus":
       return <EnergyFocusChart entries={entries} />;
     case "tag-frequency":
-      return <TagFrequencyModule entries={entries} />;
+      return (
+        <TagFrequencyModule entries={entries} limit={typeof content.limit === "number" ? content.limit : undefined} />
+      );
     case "mood-vs-weather":
-      return <MoodVsWeatherModule entries={entries} />;
+      return (
+        <MoodVsWeatherModule
+          entries={entries}
+          view={content.view === "table" ? "table" : "chart"}
+          onViewChange={(view) => onConfigChange({ view })}
+        />
+      );
     case "weather":
       return <WeatherModule networkState={networkState} />;
     case "github":
@@ -62,5 +83,16 @@ export function BoardModuleHost({ moduleId }: { moduleId: ModuleId }) {
       );
     case "theme-share":
       return <ThemeSharePanel themes={themes} activeTheme={activeTheme} onThemesChange={onThemesChange} />;
+    case "tracker":
+      return (
+        <TrackerModule
+          columns={Array.isArray(content.columns) ? (content.columns as TrackerColumn[]) : undefined}
+          rows={Array.isArray(content.rows) ? (content.rows as TrackerRow[]) : undefined}
+          checked={
+            content.checked && typeof content.checked === "object" ? (content.checked as TrackerChecked) : undefined
+          }
+          onConfigChange={onConfigChange}
+        />
+      );
   }
 }

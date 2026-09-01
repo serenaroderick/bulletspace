@@ -897,11 +897,11 @@ entries with no canvas of their own; a new `Board` entity (not tied to any
       `isTauri()` exactly as `App.tsx` did before.
 - [x] `BoardModuleHost` — the one new wiring component; reads a
       `BoardContext` (`entries`/`networkState`, the same values already
-      threaded to the old `.dashboard` div — turned out `sharedModules`
-      wasn't actually needed by any of the 8, so it stayed out of the
-      context) and renders the matching module component by id. The 8
-      module components themselves kept their existing prop signatures
-      untouched.
+      threaded to the old `.dashboard` div) and renders the matching
+      module component by id. The original 8 module components kept
+      their existing prop signatures untouched. (`BoardContext` grew
+      further in the follow-up round below, once journaling/sharing/theme
+      panels joined as modules too.)
 - [x] Module elements render on the canvas via `react-konva-utils`'s
       `Html` (new dependency — nothing in this repo previously synced real
       DOM content to a Konva node's transform), nested inside the same
@@ -928,16 +928,85 @@ entries with no canvas of their own; a new `Board` entity (not tied to any
       canvas" button were deleted along with them.
 
 **Success criteria:** the app opens to a blank Figma-style board; "Add
-Module" places any of the 8 dashboard modules onto it; modules and
-stickers can be freely dragged, resized (free-aspect for modules, locked
-for stickers), multi-selected, and grouped together; right-clicking a
-module or sticker shows the working context menu; layout survives a
-reload. **Met on the automated side**: `pnpm typecheck`/`pnpm test` pass
-(120 tests), including the `IndexedDBAdapter` v4→v5 upgrade path and a
-production `pnpm build`. **Live-verification in progress** — no browser-
-automation tool was available this session, so this was confirmed only by
-the user clicking through the running dev server directly, not screenshot-
-verified the way earlier phases were.
+Module" places any of the dashboard modules onto it; modules and stickers
+can be freely dragged, multi-selected, and grouped together;
+right-clicking a module or sticker shows the working context menu; layout
+survives a reload. **Met and verified live** by the user directly (no
+browser-automation tool was available this session, so verification was
+their own hands-on testing against the running dev server, not
+screenshots) — see the bugs and follow-up scope changes below, all found
+this same way.
+
+**Three real bugs found via that live testing, not code review:**
+
+1. Drag not working on a placed module, and the context menu never
+   appearing on one — both had the same root cause. A module renders as a
+   real DOM overlay (`react-konva-utils`'s `Html`), which was capturing
+   every pointer event over its full area before Konva ever saw it; on
+   top of that, the module's Konva `Group` had no actual drawn shape, so
+   even a pass-through click would've hit empty canvas. Fixed both: the
+   overlay div now sets `pointerEvents: "none"` (with CSS re-enabling it
+   specifically on real `button`/`input`/`select`/`textarea`/`a` elements
+   inside `.module`, so those keep working), and an invisible
+   hit-testable `Rect` (`fill="transparent"`, still hit-tested by Konva)
+   was added to the module's `Group` alongside the `Html`.
+2. Dark mode not reaching the canvas — the void area around the bounded
+   page was hardcoded to a fixed light gray (`#d9d9dc`) regardless of
+   theme. Now uses `var(--bs-color-border)`. (The page's own background
+   color stays independently configurable per-board by design — that's
+   Phase 5.6, unrelated to this bug.)
+3. A **new** board's default background was still hardcoded white
+   regardless of the active theme, which is what made the fix above feel
+   incomplete at first (the void was theme-colored, but the actual page —
+   nearly the whole visible area at default zoom — wasn't). Fixed by
+   seeding `defaultCanvasConfig()`'s background from the active theme's
+   color *only at board-creation time* — the background stays a genuine,
+   independent per-board setting after that (Canvas Settings ->
+   Background), not something that keeps following theme changes, the
+   same way a physical journal page doesn't recolor itself when the app's
+   chrome changes. The one already-created board from earlier testing
+   didn't retroactively change (correctly, by that same logic); fixed by
+   hand via a one-off browser-console script directly against IndexedDB
+   rather than a permanent migration for a single dev-only board.
+
+**Scope change, made after live-testing, not before writing code:** the
+user tried the new board and immediately flagged that the per-entry
+canvas model didn't serve its actual purpose. Two follow-up rounds:
+
+- Round 1: added a Board/Journal tab switcher so the canvas wasn't
+  sharing one scrolling page with the entry-creation form/list/import/
+  theme-share panels.
+- Round 2 (superseding round 1 immediately): the user didn't want a
+  separate Journal view *at all* — "everything should be a module,
+  draggable onto the canvas like the ones under Add Module." Removed the
+  tab switcher entirely; journaling, "Import a shared module," and
+  "Themes" became three more entries in `MODULE_REGISTRY` (`journal`,
+  `shared-modules`, `theme-share` — 11 total now), rendered through the
+  same `BoardModuleHost` as everything else. New
+  `apps/web/src/components/modules/JournalModule.tsx` (entry form + entry
+  list, self-contained state/effects, the same pattern `WeatherModule`
+  already established) replaces what used to be fixed page content in
+  `App.tsx`. `BoardContext` grew to carry what these three need
+  (`journal`, `onEntriesChanged`, `onOpenEntry`, `sharedModules`,
+  `themes`/`activeTheme`, their change handlers). `App.tsx` is now just
+  header + one `BoardCanvas` — no second view of any kind.
+  **One real behavior loss, not hidden**: desktop's native "File -> New
+  Entry" menu shortcut used to focus the entry-title input directly; now
+  that the entry form only exists if a Journal module happens to be
+  placed on the board, there's no longer a reliable element to focus, so
+  that shortcut's effect is gone (Export/Import via the menu still work).
+
+**Resize/rotate restricted to stickers only, deferred for modules:**
+live-testing surfaced that resizing a module's bounding box didn't resize
+its actual content — modules don't have responsive layout yet, so
+`Transformer`'s resize anchors are now hidden whenever the selection
+includes anything other than a sticker (`enabledAnchors={onlyStickersSelected
+? [...] : []}`, alongside the existing `keepRatio`/`rotateEnabled`
+conditionals). The selection outline still shows for a selected module
+(so multi-select/grouping stays visually clear), there's just nothing to
+grab. Revisiting real per-module resize is explicitly future work, not
+abandoned — needs each module's content to actually adapt to an
+arbitrary box first.
 
 ## Phase 6.2.6: Multiple Boards (deferred)
 
@@ -958,34 +1027,123 @@ it (real usage wanting more than one board).
 
 ## Phase 6.3: Module Properties Panel
 
-**Goal:** let users configure module data and appearance via a panel.
+**Goal, rescoped before writing code:** the original DoD below (adapters,
+field mapping, filters, formula editor, chart-type switch, theme
+overrides) assumed every module is `ModuleDefinition`-backed — sources,
+joins, transformations, all editable as data. That was true of the
+dashboard back when this roadmap section was first written; it stopped
+being true once Phases 1-6.2.5 accumulated 8 hardcoded React components
+(Habit Streak, Weather, Journal, etc.) alongside the one real
+`ModuleDefinition`-driven module (Mood vs. Weather, and it's hardcoded
+inline, not user-editable) plus imported/shared modules — which today
+aren't even their own board element, they render as sub-cards nested
+inside the "Import a shared module" module. A full query-engine config
+panel genuinely has nothing to attach to for 8 of 11 board modules.
 
-- [ ] Property panel UI — selecting a module shows its configuration in
-      the right panel
-- [ ] Data sources — dropdowns list and let users change which adapters a
-      module uses
-- [ ] Field mapping — for merge modules, map fields (e.g. `m.date = w.day`)
-      via dropdowns
-- [ ] Filters — add, edit, and remove filter conditions (date ranges,
-      numeric thresholds, keyword search)
-- [ ] Formulas — add computed fields via a simple expression editor with
-      syntax highlighting and validation. **This authors the same minimal
-      declarative expression language Phase 2's query engine already
-      defines** (`"target = a + b"`-style, no `eval()`/`new Function()`) —
-      a friendlier editor for it, not a new arbitrary-code capability; the
-      declarative-Modules trust tier from PITCH.md still holds.
-- [ ] Chart type — switch between line, bar, scatter, table, and other
-      supported visualizations
-- [ ] Visual overrides — override the active theme's colors, fonts, and
-      spacing for the selected module
-- [ ] Live preview — changes apply immediately on canvas, no "Apply" button
-- [ ] Validation — invalid configurations (e.g. missing required fields)
-      are clearly flagged with error messages
+**Rescoped to "light config"**, a deliberate choice over the two bigger
+alternatives (promoting shared/custom modules to first-class
+`ModuleDefinition`-backed board elements with the full original panel —
+that's a real Visual-Editor-shaped feature, not attempted here; or adding
+per-module config with no panel for the rest): only modules with a real,
+already-existing hardcoded constant worth exposing get a panel — nothing
+invented.
 
-**Success criteria:** selecting a module surfaces a full config panel —
-adapters, field mapping, filters, formulas, chart type, visual overrides —
-and every change reflects on canvas immediately, with invalid configs
-clearly flagged rather than failing silently.
+- [x] Property panel UI — selecting exactly one module (not multi-select,
+      not a sticker) shows a floating panel, anchored top-right
+      (`.board-canvas-floating-panel-right`) rather than top-left where
+      the sticker/module/settings pickers already live, so opening one of
+      those while a module's selected doesn't overlap. Happens to be
+      where Phase 6.1's original DoD always wanted a collapsible right
+      panel. Closing it deselects the element.
+      `apps/web/src/components/ModulePropertiesPanel.tsx`.
+- [x] Exactly three modules got real settings, each replacing a constant
+      that was already hardcoded, not a new capability:
+      - Habit Streak: `daysToShow` (7/14/30/90), was `DAYS_TO_SHOW = 30`.
+      - Tag Frequency: `limit` (5/10/20), was `.slice(0, 10)`.
+      - Mood vs. Weather: `view` ("chart"/"table") — this one already had
+        a working in-module toggle; it just reset on every reload since
+        it was local `useState`. Lifted to a controlled prop
+        (`view`/`onViewChange`) so the same in-place toggle now persists
+        through `CanvasElement.content` instead of being thrown away.
+- [x] `CONFIGURABLE_MODULE_IDS` (`apps/web/src/modules/registry.ts`) is
+      the single source of truth both BoardCanvas (whether to show the
+      panel at all) and ModulePropertiesPanel (which fields to render)
+      check against — adding a 4th configurable module later means one
+      line there plus a case in `ModulePropertiesFields` and the
+      component's own prop, not new plumbing.
+      `BoardModuleHost` gained `content`/`onConfigChange` props threaded
+      through only to the three that use them; every other module ignores
+      them entirely, unchanged.
+- [x] Live preview — changes apply immediately (it's a controlled prop
+      re-render, same as every other config change on this board), no
+      separate "Apply" step. Persistence reuses the exact
+      `db.updateCanvasElement` + `setElements` pattern every other
+      element mutation on the board already uses
+      (`handleModuleConfigChange`, mirrors `handleBringToFront`/etc.).
+- [ ] Data sources / field mapping / filters / formula editor / chart-type
+      switch / visual overrides / validation — **not built**, out of
+      scope for this pass. These only make sense once modules are
+      genuinely `ModuleDefinition`-backed board elements, which they
+      mostly aren't yet (see rescoping note above). Revisit if/when a
+      "custom module" board element is built.
+
+**Success criteria:** selecting Habit Streak, Tag Frequency, or Mood vs.
+Weather surfaces a working panel that changes take effect on immediately
+and persist across a reload; selecting anything else shows no panel
+(nothing to configure). **Met** — `pnpm typecheck`/`pnpm test` pass (120
+tests) and a production `pnpm build` succeeds; live-verification is
+pending the user's own click-through (no browser-automation tool
+available this session). The original full-query-engine-panel success
+criteria (adapters/field-mapping/filters/formulas/chart-type/visual
+overrides, all live) is explicitly **not** attempted here — see rescoping
+note.
+
+## Phase 6.3.5: Tracker Module
+
+**Goal:** a spreadsheet-style habit tracker — columns are habits ("gym"),
+rows are dates, cells are checkboxes, both axes grow via a "+" like Excel.
+
+- [x] `TrackerModule.tsx` (`apps/web/src/components/modules/`) — a real
+      `<table>`, columns across the top (each an always-editable `<input>`
+      title, no separate edit-mode toggle) with a trailing "+" `<th>` to
+      add one; rows down the side (label defaults to
+      `new Date().toLocaleDateString()`, freely editable after, not a
+      strict date picker) with a trailing "+" row to add one; a checkbox
+      per (row, column) cell; a small "×" on each column/row header to
+      delete it (and its entries) — not explicitly requested, added
+      anyway since a tracker with no way to fix a typo'd or unwanted
+      row/column doesn't hold up.
+- [x] Data lives entirely in `CanvasElement.content`
+      (`{ columns, rows, checked }`) — no new `DatabaseAdapter` method, no
+      new entity. Reuses the exact persistence path Phase 6.3 built
+      (`handleModuleConfigChange` in `BoardCanvas.tsx`).
+- [x] Unlike Phase 6.3's three "light config" modules, Tracker has **no**
+      separate properties panel — its whole point is direct, in-place
+      editing, same as `JournalModule`'s form being inline rather than a
+      side panel. Not added to `CONFIGURABLE_MODULE_IDS`.
+- [x] State is seeded once from `content` on mount and not re-synced from
+      props afterward (same pattern `WeatherModule` already uses for its
+      own config/payload state) — every edit updates local state
+      immediately (instant typing, no round-trip lag through the async
+      `db.updateCanvasElement` write) and fires `onConfigChange` in the
+      background to persist. Reasonable for a single-user local-first app
+      with one writer; not built for concurrent editors.
+- [x] Wired as a 12th `MODULE_REGISTRY` entry
+      (`apps/web/src/modules/registry.ts`) and one new `case "tracker"` in
+      `BoardModuleHost.tsx` — both `content`/`onConfigChange` were already
+      props of `BoardModuleHost` from Phase 6.3, so no changes to
+      `BoardCanvas.tsx` itself were needed.
+- [ ] Real per-module resize — still deferred from Phase 6.2.5's
+      follow-up; the table scrolls inside the module's fixed box via the
+      `overflow: auto` `.module` already has, same interim behavior every
+      other module has today.
+
+**Success criteria:** add a Tracker, add a column, add a few date rows,
+check some boxes, rename a column mid-way, delete a row — all persists
+across a reload. **Met on the automated side**: `pnpm typecheck`/
+`pnpm test` pass (120 tests) and a production `pnpm build` succeeds;
+live-verification pending the user's own click-through (no browser-
+automation tool available this session).
 
 ## Phase 6.4: Asset Store Panel
 
@@ -1139,7 +1297,8 @@ schema validation ahead of a lightweight human review queue).
 | 6.2 | Draggable modules | No | Free placement, resize, rotate, multi-select, grouping, context menu (stickers) |
 | 6.2.5 | Dashboard canvas | No (+1 new dep: `react-konva-utils`) | `Board` entity, modules as `CanvasElement`s, per-entry canvas retired |
 | 6.2.6 | Multiple boards | No | Deferred — board switcher, new board, timeframe boards |
-| 6.3 | Module properties panel | No | Data source/field mapping/filters/formulas/chart type UI, live preview |
+| 6.3 | Module properties panel | No | Rescoped to "light config" — panel for 3 modules (Habit Streak, Tag Frequency, Mood vs. Weather); full query-engine panel deferred |
+| 6.3.5 | Tracker module | No | Excel-style checkbox habit matrix, config lives on the CanvasElement, no properties panel |
 | 6.4 | Asset store panel | Yes (marketplace API) | Browse/search/install modules, themes, stickers, fonts |
 | 6.5 | Collage & layer management | No | Photo upload/manipulation/filters, layer panel, selection sync |
 | 6.6 | Undo/redo | No | 100-deep grouped history, Cmd+Z/Cmd+Shift+Z |

@@ -423,6 +423,46 @@
   border-bottom: none;
 }
 
+/* Anchored opposite the sticker/module/settings pickers -- selecting a
+   module and opening one of those at the same time shouldn't overlap.
+   Also happens to be where Phase 6.1's original DoD always wanted a
+   collapsible right panel to live. */
+.board-canvas-floating-panel-right {
+  left: auto;
+  right: 0.75rem;
+}
+
+.module-properties-panel {
+  padding: 0.75rem 1rem;
+  border-radius: var(--bs-corner-radius);
+  min-width: 14rem;
+}
+
+.module-properties-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.module-properties-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  color: var(--bs-color-text-muted);
+}
+
+.module-properties-row select {
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--bs-corner-radius);
+  border: var(--bs-line-thickness) solid var(--bs-color-border);
+  background: var(--bs-color-surface);
+  color: var(--bs-color-text);
+  font: inherit;
+}
+
 .board-canvas-context-menu-backdrop {
   position: fixed;
   inset: 0;
@@ -701,6 +741,73 @@
   width: 10px;
   height: 10px;
   border-radius: 2px;
+}
+
+.tracker-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.tracker-table th,
+.tracker-table td {
+  border: var(--bs-line-thickness) solid var(--bs-color-border);
+  padding: 0.3rem 0.4rem;
+  text-align: center;
+}
+
+.tracker-corner {
+  min-width: 3rem;
+}
+
+.tracker-header-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.tracker-header-input {
+  min-width: 0;
+  width: 6rem;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.tracker-header-input:focus {
+  outline: 1px solid var(--bs-color-accent);
+  border-radius: var(--bs-corner-radius);
+}
+
+.tracker-delete {
+  border: none;
+  background: none;
+  color: var(--bs-color-text-muted);
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+  padding: 0 0.2rem;
+}
+
+.tracker-delete:hover {
+  color: #c0392b;
+}
+
+.tracker-add {
+  border: none;
+  background: none;
+  color: var(--bs-color-accent);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.2rem 0.5rem;
+}
+
+.tracker-cell {
+  vertical-align: middle;
 }
 
 .sortable-header {
