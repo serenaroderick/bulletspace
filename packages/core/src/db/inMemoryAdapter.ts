@@ -1,6 +1,6 @@
 import type { ModuleDefinition } from "../modules.js";
 import type { AssetDefinition, ThemeDefinition } from "../theme.js";
-import type { CanvasElement, Entry, Journal } from "../types.js";
+import type { Board, CanvasElement, Entry, Journal } from "../types.js";
 import type { AdapterCacheEntry, DatabaseAdapter } from "./adapter.js";
 
 /**
@@ -9,6 +9,7 @@ import type { AdapterCacheEntry, DatabaseAdapter } from "./adapter.js";
 export class InMemoryAdapter implements DatabaseAdapter {
   private journals = new Map<string, Journal>();
   private entries = new Map<string, Entry>();
+  private boards = new Map<string, Board>();
   private canvasElements = new Map<string, CanvasElement>();
   private adapterCache = new Map<string, AdapterCacheEntry>();
   private moduleDefinitions = new Map<string, ModuleDefinition>();
@@ -63,12 +64,34 @@ export class InMemoryAdapter implements DatabaseAdapter {
     this.entries.delete(id);
   }
 
+  async createBoard(board: Board): Promise<void> {
+    this.boards.set(board.id, board);
+  }
+
+  async getBoard(id: string): Promise<Board | undefined> {
+    return this.boards.get(id);
+  }
+
+  async listBoards(): Promise<Board[]> {
+    return [...this.boards.values()];
+  }
+
+  async updateBoard(id: string, patch: Partial<Board>): Promise<void> {
+    const existing = this.boards.get(id);
+    if (!existing) throw new Error(`Board not found: ${id}`);
+    this.boards.set(id, { ...existing, ...patch });
+  }
+
+  async deleteBoard(id: string): Promise<void> {
+    this.boards.delete(id);
+  }
+
   async createCanvasElement(element: CanvasElement): Promise<void> {
     this.canvasElements.set(element.id, element);
   }
 
-  async listCanvasElementsByEntry(entryId: string): Promise<CanvasElement[]> {
-    return [...this.canvasElements.values()].filter((element) => element.entryId === entryId);
+  async listCanvasElementsByBoard(boardId: string): Promise<CanvasElement[]> {
+    return [...this.canvasElements.values()].filter((element) => element.boardId === boardId);
   }
 
   async updateCanvasElement(id: string, patch: Partial<CanvasElement>): Promise<void> {

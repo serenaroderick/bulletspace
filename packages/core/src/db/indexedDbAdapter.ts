@@ -1,7 +1,7 @@
 import { type DBSchema, type IDBPDatabase, openDB } from "idb";
 import type { ModuleDefinition } from "../modules.js";
 import type { AssetDefinition, ThemeDefinition } from "../theme.js";
-import type { CanvasElement, Entry, Journal } from "../types.js";
+import type { Board, CanvasElement, Entry, Journal } from "../types.js";
 import type { AdapterCacheEntry, DatabaseAdapter } from "./adapter.js";
 
 interface BulletSpaceDB extends DBSchema {
@@ -14,10 +14,14 @@ interface BulletSpaceDB extends DBSchema {
     value: Entry;
     indexes: { journalId: string };
   };
+  boards: {
+    key: string;
+    value: Board;
+  };
   canvasElements: {
     key: string;
     value: CanvasElement;
-    indexes: { entryId: string };
+    indexes: { boardId: string };
   };
   adapterCache: {
     key: string;
@@ -38,7 +42,7 @@ interface BulletSpaceDB extends DBSchema {
 }
 
 const DEFAULT_DB_NAME = "bulletspace";
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 /**
  * Web adapter backed by IndexedDB. Requires a browser (or a browser-like
@@ -51,7 +55,7 @@ export class IndexedDBAdapter implements DatabaseAdapter {
 
   async init(): Promise<void> {
     this.db = await openDB<BulletSpaceDB>(this.dbName, DB_VERSION, {
-      upgrade(db) {
+      upgrade(db, oldVersion) {
         if (!db.objectStoreNames.contains("journals")) {
           db.createObjectStore("journals", { keyPath: "id" });
         }
@@ -61,9 +65,22 @@ export class IndexedDBAdapter implements DatabaseAdapter {
           entries.createIndex("journalId", "journalId");
         }
 
+        if (!db.objectStoreNames.contains("boards")) {
+          db.createObjectStore("boards", { keyPath: "id" });
+        }
+
+        // v5: canvasElements moved from an `entryId` index to `boardId`
+        // (Phase 6.2.5 -- the canvas is no longer per-entry). `idb` only
+        // lets an index be created at store-creation time, so a pre-v5
+        // store is dropped and recreated rather than migrated in place --
+        // this drops any existing canvas elements on upgrade, acceptable
+        // since there's no real user data riding on this yet.
+        if (oldVersion < 5 && db.objectStoreNames.contains("canvasElements")) {
+          db.deleteObjectStore("canvasElements");
+        }
         if (!db.objectStoreNames.contains("canvasElements")) {
           const canvasElements = db.createObjectStore("canvasElements", { keyPath: "id" });
-          canvasElements.createIndex("entryId", "entryId");
+          canvasElements.createIndex("boardId", "boardId");
         }
 
         if (!db.objectStoreNames.contains("adapterCache")) {
@@ -134,12 +151,34 @@ export class IndexedDBAdapter implements DatabaseAdapter {
     await this.connection.delete("entries", id);
   }
 
+  async createBoard(board: Board): Promise<void> {
+    await this.connection.put("boards", board);
+  }
+
+  async getBoard(id: string): Promise<Board | undefined> {
+    return this.connection.get("boards", id);
+  }
+
+  async listBoards(): Promise<Board[]> {
+    return this.connection.getAll("boards");
+  }
+
+  async updateBoard(id: string, patch: Partial<Board>): Promise<void> {
+    const existing = await this.getBoard(id);
+    if (!existing) throw new Error(`Board not found: ${id}`);
+    await this.connection.put("boards", { ...existing, ...patch });
+  }
+
+  async deleteBoard(id: string): Promise<void> {
+    await this.connection.delete("boards", id);
+  }
+
   async createCanvasElement(element: CanvasElement): Promise<void> {
     await this.connection.put("canvasElements", element);
   }
 
-  async listCanvasElementsByEntry(entryId: string): Promise<CanvasElement[]> {
-    return this.connection.getAllFromIndex("canvasElements", "entryId", entryId);
+  async listCanvasElementsByBoard(boardId: string): Promise<CanvasElement[]> {
+    return this.connection.getAllFromIndex("canvasElements", "boardId", boardId);
   }
 
   async updateCanvasElement(id: string, patch: Partial<CanvasElement>): Promise<void> {

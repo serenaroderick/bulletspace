@@ -6,12 +6,25 @@ export interface Journal {
   updatedAt: number;
 }
 
+/**
+ * The app's canvas -- a Figma-style board holding `CanvasElement`s
+ * (modules, stickers), decoupled from any journal entry. Exactly one
+ * exists today (see `ensureDefaultBoard`); the shape supports more than
+ * one (Phase 6.2.6, deferred) without another migration.
+ */
+export interface Board {
+  id: string;
+  name: string;
+  canvasConfig: CanvasConfig;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface Entry {
   id: string;
   journalId: string;
   title: string;
   content: string;
-  canvasConfig: CanvasConfig;
   mood: number | null;
   energy: number | null;
   focus: number | null;
@@ -47,13 +60,13 @@ export interface ParallaxConfig {
 }
 
 /**
- * A bounded canvas "page," per-entry (Option A of the Phase 6.1 pagination
- * model: one page per entry, not a separate CanvasPage entity yet --
- * simplest mapping onto the existing data model; a real multi-page-per-
- * entry table is a clean additive extension later if ever needed).
- * Grid/background/parallax live here, not on ThemeDefinition -- different
- * spreads should be able to look different from each other, the same way
- * a physical journal's pages do, independent of the app's own color theme.
+ * A bounded canvas "page." Originally per-entry (Phase 6.1's Option A);
+ * Phase 6.2.5 moved this onto `Board` instead -- one board is the app's
+ * single Figma-style canvas, decoupled from any journal entry, so modules
+ * and stickers can share the same freeform space. Grid/background/
+ * parallax live here, not on ThemeDefinition -- different boards should be
+ * able to look different from each other, independent of the app's own
+ * color theme.
  */
 export interface CanvasConfig {
   /** px. The canvas is bounded, not infinite -- panning stops at the edges. */
@@ -83,11 +96,11 @@ export interface CanvasConfig {
   editMode: boolean;
 }
 
-export type CanvasElementType = "text" | "table" | "chart" | "image" | "embed" | "sticker";
+export type CanvasElementType = "text" | "table" | "chart" | "image" | "embed" | "sticker" | "module";
 
 export interface CanvasElement {
   id: string;
-  entryId: string;
+  boardId: string;
   type: CanvasElementType;
   content: Record<string, unknown>;
   x: number;
@@ -103,4 +116,11 @@ export interface CanvasElement {
    */
   rotation: number;
   opacity: number;
+  /**
+   * Elements sharing a non-null groupId move/select together (Cmd+G).
+   * Deliberately just a shared id, not a separate "group" entity of its
+   * own -- nothing else needs to reference a group independent of its
+   * members yet.
+   */
+  groupId: string | null;
 }

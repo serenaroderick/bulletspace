@@ -16,12 +16,12 @@ interface CanvasSettingsPanelProps {
 const GRID_STYLES: GridStyle[] = ["dot", "lined", "graph", "blank"];
 
 /**
- * Live settings for the currently open entry's bounded canvas page --
- * grid style/spacing/color/opacity, background type/value, and parallax.
- * Edits `entry.canvasConfig` in place (EntryCanvas's handleGridChange/
- * etc.), persisted per-entry -- these deliberately live on the page, not
- * on ThemeDefinition, so different pages can look different from each
- * other independent of the app's color theme.
+ * Live settings for the board's bounded canvas -- grid style/spacing/
+ * color/opacity, background type/value, and parallax. Edits
+ * `board.canvasConfig` in place (BoardCanvas's handleGridChange/etc.) --
+ * these deliberately live on the board, not on ThemeDefinition, so
+ * different boards can look different from each other independent of the
+ * app's color theme.
  */
 export function CanvasSettingsPanel({
   grid,

@@ -1,4 +1,4 @@
-import type { CanvasConfig, Entry, Journal } from "@bulletspace/core";
+import type { Entry, Journal } from "@bulletspace/core";
 
 export interface JournalExport {
   version: 1;
@@ -10,31 +10,6 @@ export function serializeJournalExport(journal: Journal, entries: Entry[]): Jour
   return { version: 1, journal, entries };
 }
 
-function isValidCanvasConfig(value: unknown): value is CanvasConfig {
-  if (typeof value !== "object" || value === null) return false;
-  const config = value as Record<string, unknown>;
-  const grid = config.grid as Record<string, unknown> | undefined;
-  return (
-    typeof config.width === "number" &&
-    typeof config.height === "number" &&
-    typeof config.zoom === "number" &&
-    typeof config.scrollX === "number" &&
-    typeof config.scrollY === "number" &&
-    typeof grid === "object" &&
-    grid !== null &&
-    typeof grid.style === "string" &&
-    typeof grid.spacing === "number" &&
-    typeof grid.color === "string" &&
-    typeof grid.opacity === "number" &&
-    typeof config.canvasBackground === "object" &&
-    config.canvasBackground !== null &&
-    typeof config.parallax === "object" &&
-    config.parallax !== null &&
-    typeof config.snapToGrid === "boolean" &&
-    typeof config.editMode === "boolean"
-  );
-}
-
 function isValidEntry(value: unknown): value is Entry {
   if (typeof value !== "object" || value === null) return false;
   const entry = value as Record<string, unknown>;
@@ -43,7 +18,6 @@ function isValidEntry(value: unknown): value is Entry {
     typeof entry.journalId === "string" &&
     typeof entry.title === "string" &&
     typeof entry.content === "string" &&
-    isValidCanvasConfig(entry.canvasConfig) &&
     (entry.mood === null || typeof entry.mood === "number") &&
     (entry.energy === null || typeof entry.energy === "number") &&
     (entry.focus === null || typeof entry.focus === "number") &&

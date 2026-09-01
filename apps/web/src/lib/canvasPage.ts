@@ -1,10 +1,9 @@
 import type { CanvasConfig } from "@bulletspace/core";
 
 /**
- * Page-size presets for Phase 6.1's bounded-canvas-per-entry model
- * (Option A: one page per entry). "Freeform" is the default for new
- * entries -- big enough to feel unconstrained day-to-day, while still
- * being a real boundary (not infinite pan).
+ * Size presets for the board's bounded canvas. "Freeform" is the default
+ * -- big enough to feel unconstrained day-to-day, while still being a
+ * real boundary (not infinite pan).
  */
 export interface PageSizePreset {
   id: string;

@@ -1,6 +1,7 @@
 import type {
   AdapterCacheEntry,
   AssetDefinition,
+  Board,
   CanvasElement,
   DatabaseAdapter,
   Entry,
@@ -17,6 +18,9 @@ function journalKey(id: string) {
 }
 function entryKey(id: string) {
   return `entry:${id}`;
+}
+function boardKey(id: string) {
+  return `board:${id}`;
 }
 function canvasElementKey(id: string) {
   return `canvasElement:${id}`;
@@ -103,13 +107,35 @@ export class FileSystemAdapter implements DatabaseAdapter {
     await this.connection.delete(entryKey(id));
   }
 
+  async createBoard(board: Board): Promise<void> {
+    await this.connection.set(boardKey(board.id), board);
+  }
+
+  async getBoard(id: string): Promise<Board | undefined> {
+    return (await this.connection.get<Board>(boardKey(id))) ?? undefined;
+  }
+
+  async listBoards(): Promise<Board[]> {
+    return this.listByPrefix<Board>("board:");
+  }
+
+  async updateBoard(id: string, patch: Partial<Board>): Promise<void> {
+    const existing = await this.getBoard(id);
+    if (!existing) throw new Error(`Board not found: ${id}`);
+    await this.connection.set(boardKey(id), { ...existing, ...patch });
+  }
+
+  async deleteBoard(id: string): Promise<void> {
+    await this.connection.delete(boardKey(id));
+  }
+
   async createCanvasElement(element: CanvasElement): Promise<void> {
     await this.connection.set(canvasElementKey(element.id), element);
   }
 
-  async listCanvasElementsByEntry(entryId: string): Promise<CanvasElement[]> {
+  async listCanvasElementsByBoard(boardId: string): Promise<CanvasElement[]> {
     const all = await this.listByPrefix<CanvasElement>("canvasElement:");
-    return all.filter((element) => element.entryId === entryId);
+    return all.filter((element) => element.boardId === boardId);
   }
 
   async updateCanvasElement(id: string, patch: Partial<CanvasElement>): Promise<void> {

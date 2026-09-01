@@ -1,22 +1,15 @@
-import type { CanvasConfig, Entry, Journal, ModuleDefinition, NetworkState, ThemeDefinition } from "@bulletspace/core";
+import type { Board, CanvasConfig, Entry, Journal, ModuleDefinition, NetworkState, ThemeDefinition } from "@bulletspace/core";
 import { type ChangeEvent, type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
 import { AccountPanel } from "./components/AccountPanel";
-import { EntryCanvas } from "./components/EntryCanvas";
+import { BoardCanvas } from "./components/BoardCanvas";
+import { BoardContextProvider } from "./components/BoardContext";
 import { EntryView } from "./components/EntryView";
-import { EnergyFocusChart } from "./components/modules/EnergyFocusChart";
-import { GithubModule } from "./components/modules/GithubModule";
-import { GoogleCalendarModule } from "./components/modules/GoogleCalendarModule";
-import { HabitStreakModule } from "./components/modules/HabitStreakModule";
-import { MoodLineChart } from "./components/modules/MoodLineChart";
-import { MoodVsWeatherModule } from "./components/modules/MoodVsWeatherModule";
-import { TagFrequencyModule } from "./components/modules/TagFrequencyModule";
-import { WeatherModule } from "./components/modules/WeatherModule";
 import { NetworkToggle } from "./components/NetworkToggle";
 import { SharedModulesPanel } from "./components/SharedModulesPanel";
 import { ThemeSharePanel } from "./components/ThemeSharePanel";
 import { ThemeSwitcher } from "./components/ThemeSwitcher";
-import { defaultCanvasConfig } from "./lib/canvasPage";
+import { ensureDefaultBoard } from "./lib/board";
 import { db, ensureDbInitialized } from "./lib/db";
 import { exportJournal } from "./lib/exportFile";
 import { gatekeeper } from "./lib/gatekeeper";
@@ -35,6 +28,7 @@ function newId(): string {
 export default function App() {
   const [ready, setReady] = useState(false);
   const [journal, setJournal] = useState<Journal | null>(null);
+  const [board, setBoard] = useState<Board | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [networkState, setNetworkState] = useState<NetworkState>(gatekeeper.getState());
   const [draftTitle, setDraftTitle] = useState("");
@@ -43,7 +37,6 @@ export default function App() {
   const [draftEnergy, setDraftEnergy] = useState("");
   const [draftFocus, setDraftFocus] = useState("");
   const [draftTags, setDraftTags] = useState("");
-  const [openEntryId, setOpenEntryId] = useState<string | null>(null);
   const [viewEntryId, setViewEntryId] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [sharedModules, setSharedModules] = useState<ModuleDefinition[]>([]);
@@ -88,6 +81,9 @@ export default function App() {
       await loadEntries(active.id);
       await loadSharedModules();
 
+      const activeBoard = await ensureDefaultBoard(db);
+      setBoard(activeBoard);
+
       const allThemes = await loadThemes();
       const persistedId = loadActiveThemeId();
       const persistedTheme = allThemes.find((theme) => theme.id === persistedId) ?? defaultLightTheme;
@@ -109,7 +105,6 @@ export default function App() {
         journalId: journal.id,
         title: draftTitle.trim(),
         content: draftContent,
-        canvasConfig: defaultCanvasConfig(),
         mood: clampRating(draftMood),
         energy: clampRating(draftEnergy),
         focus: clampRating(draftFocus),
@@ -145,65 +140,13 @@ export default function App() {
     setNetworkState(state);
   }, []);
 
-  const handleEntryCanvasConfigChange = useCallback(async (entryId: string, config: CanvasConfig) => {
-    await db.updateEntry(entryId, { canvasConfig: config });
-    setEntries((prev) => prev.map((entry) => (entry.id === entryId ? { ...entry, canvasConfig: config } : entry)));
-  }, []);
-
-  // Phase 6.1 pagination (Option A: one bounded canvas page per entry) --
-  // "New Page" is just a new entry with a fresh page; "Duplicate Page"
-  // clones the current entry's canvasConfig and every sticker on it.
-  const handleNewPage = useCallback(async () => {
-    if (!journal) return;
-    const now = Date.now();
-    const created: Entry = {
-      id: newId(),
-      journalId: journal.id,
-      title: new Date(now).toLocaleDateString(),
-      content: "",
-      canvasConfig: defaultCanvasConfig(),
-      mood: null,
-      energy: null,
-      focus: null,
-      tags: [],
-      createdAt: now,
-      updatedAt: now,
-    };
-    await db.createEntry(created);
-    setEntries((prev) => [created, ...prev].sort((a, b) => b.createdAt - a.createdAt));
-    setOpenEntryId(created.id);
-  }, [journal]);
-
-  const handleDuplicatePage = useCallback(
-    async (sourceEntryId: string) => {
-      const source = entries.find((entry) => entry.id === sourceEntryId);
-      if (!source || !journal) return;
-
-      const now = Date.now();
-      const created: Entry = {
-        ...source,
-        id: newId(),
-        title: `${source.title} (copy)`,
-        canvasConfig: {
-          ...source.canvasConfig,
-          grid: { ...source.canvasConfig.grid },
-          canvasBackground: { ...source.canvasConfig.canvasBackground },
-          parallax: { ...source.canvasConfig.parallax },
-        },
-        createdAt: now,
-        updatedAt: now,
-      };
-      await db.createEntry(created);
-
-      const sourceElements = await db.listCanvasElementsByEntry(sourceEntryId);
-      for (const element of sourceElements) {
-        await db.createCanvasElement({ ...element, id: newId(), entryId: created.id });
-      }
-
-      setEntries((prev) => [created, ...prev].sort((a, b) => b.createdAt - a.createdAt));
-      setOpenEntryId(created.id);
+  const handleBoardConfigChange = useCallback(
+    async (config: CanvasConfig) => {
+      if (!board) return;
+      await db.updateBoard(board.id, { canvasConfig: config });
+      setBoard((prev) => (prev ? { ...prev, canvasConfig: config } : prev));
     },
-    [entries, journal],
+    [board],
   );
 
   const handleSaveEntry = useCallback(
@@ -233,7 +176,6 @@ export default function App() {
         journalId: journal.id,
         title: title.trim(),
         content: "",
-        canvasConfig: defaultCanvasConfig(),
         mood: null,
         energy: null,
         focus: null,
@@ -326,28 +268,8 @@ export default function App() {
     [journal, entries, loadEntries],
   );
 
-  if (!ready || !journal) {
+  if (!ready || !journal || !board) {
     return <div className="loading">Loading…</div>;
-  }
-
-  const openEntry = openEntryId ? (entries.find((entry) => entry.id === openEntryId) ?? null) : null;
-  const openEntryIndex = openEntry ? entries.findIndex((entry) => entry.id === openEntry.id) : -1;
-
-  if (openEntry) {
-    return (
-      <EntryCanvas
-        entry={openEntry}
-        pageIndex={openEntryIndex}
-        pageCount={entries.length}
-        previousEntryId={openEntryIndex > 0 ? entries[openEntryIndex - 1].id : null}
-        nextEntryId={openEntryIndex >= 0 && openEntryIndex < entries.length - 1 ? entries[openEntryIndex + 1].id : null}
-        onBack={() => setOpenEntryId(null)}
-        onConfigChange={(config) => handleEntryCanvasConfigChange(openEntry.id, config)}
-        onNavigate={setOpenEntryId}
-        onNewPage={handleNewPage}
-        onDuplicatePage={() => handleDuplicatePage(openEntry.id)}
-      />
-    );
   }
 
   const viewEntry = viewEntryId ? (entries.find((entry) => entry.id === viewEntryId) ?? null) : null;
@@ -393,22 +315,12 @@ export default function App() {
       {importError && <p className="import-error">{importError}</p>}
 
       <main className="app-main">
-        <div className="dashboard">
-          <HabitStreakModule entries={entries} />
-          <MoodLineChart entries={entries} />
-          <EnergyFocusChart entries={entries} />
-          <TagFrequencyModule entries={entries} />
-          <MoodVsWeatherModule entries={entries} />
-          <WeatherModule networkState={networkState} />
-          {isTauri() && <GithubModule networkState={networkState} />}
-          {isTauri() && <GoogleCalendarModule networkState={networkState} />}
-          <SharedModulesPanel
-            entries={entries}
-            sharedModules={sharedModules}
-            onSharedModulesChange={loadSharedModules}
-          />
-          <ThemeSharePanel themes={themes} activeTheme={activeTheme} onThemesChange={handleThemesChanged} />
-        </div>
+        <BoardContextProvider value={{ entries, networkState }}>
+          <BoardCanvas board={board} onConfigChange={handleBoardConfigChange} />
+        </BoardContextProvider>
+
+        <SharedModulesPanel entries={entries} sharedModules={sharedModules} onSharedModulesChange={loadSharedModules} />
+        <ThemeSharePanel themes={themes} activeTheme={activeTheme} onThemesChange={handleThemesChanged} />
 
         <form className="entry-form" onSubmit={handleCreateEntry}>
           <input
@@ -467,9 +379,6 @@ export default function App() {
               <div className="entry-actions">
                 <button type="button" onClick={() => setViewEntryId(entry.id)}>
                   Open
-                </button>
-                <button type="button" onClick={() => setOpenEntryId(entry.id)}>
-                  Open canvas
                 </button>
                 <button type="button" onClick={() => handleDeleteEntry(entry.id, entry.title)}>
                   Delete

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { ModuleDefinition } from "../modules.js";
 import type { AssetDefinition, ThemeDefinition } from "../theme.js";
-import type { CanvasElement, Entry, Journal } from "../types.js";
+import type { Board, CanvasElement, Entry, Journal } from "../types.js";
 import type { DatabaseAdapter } from "./adapter.js";
 import { IndexedDBAdapter } from "./indexedDbAdapter.js";
 import { InMemoryAdapter } from "./inMemoryAdapter.js";
@@ -23,6 +23,20 @@ function makeEntry(overrides: Partial<Entry> = {}): Entry {
     journalId: "journal-1",
     title: "2026-08-20",
     content: "# Today\n",
+    mood: null,
+    energy: null,
+    focus: null,
+    tags: [],
+    createdAt: 1,
+    updatedAt: 1,
+    ...overrides,
+  };
+}
+
+function makeBoard(overrides: Partial<Board> = {}): Board {
+  return {
+    id: "board-1",
+    name: "Dashboard",
     canvasConfig: {
       width: 4000,
       height: 4000,
@@ -35,10 +49,6 @@ function makeEntry(overrides: Partial<Entry> = {}): Entry {
       snapToGrid: true,
       editMode: true,
     },
-    mood: null,
-    energy: null,
-    focus: null,
-    tags: [],
     createdAt: 1,
     updatedAt: 1,
     ...overrides,
@@ -48,7 +58,7 @@ function makeEntry(overrides: Partial<Entry> = {}): Entry {
 function makeCanvasElement(overrides: Partial<CanvasElement> = {}): CanvasElement {
   return {
     id: "element-1",
-    entryId: "entry-1",
+    boardId: "board-1",
     type: "text",
     content: { markdown: "hello" },
     x: 0,
@@ -58,6 +68,7 @@ function makeCanvasElement(overrides: Partial<CanvasElement> = {}): CanvasElemen
     zIndex: 0,
     rotation: 0,
     opacity: 1,
+    groupId: null,
     ...overrides,
   };
 }
@@ -164,23 +175,53 @@ describe.each(adapters)("%s", (_name, createAdapter) => {
     expect(await adapter.getEntry("entry-1")).toBeUndefined();
   });
 
-  it("creates canvas elements and lists them by entry", async () => {
-    await adapter.createEntry(makeEntry());
+  it("creates and retrieves a board", async () => {
+    await adapter.createBoard(makeBoard());
+    const board = await adapter.getBoard("board-1");
+    expect(board).toMatchObject({ id: "board-1", name: "Dashboard" });
+  });
+
+  it("lists all boards", async () => {
+    await adapter.createBoard(makeBoard({ id: "board-1" }));
+    await adapter.createBoard(makeBoard({ id: "board-2", name: "Other" }));
+    const boards = await adapter.listBoards();
+    expect(boards).toHaveLength(2);
+  });
+
+  it("updates a board", async () => {
+    await adapter.createBoard(makeBoard());
+    await adapter.updateBoard("board-1", { name: "Renamed" });
+    const board = await adapter.getBoard("board-1");
+    expect(board?.name).toBe("Renamed");
+  });
+
+  it("deletes a board", async () => {
+    await adapter.createBoard(makeBoard());
+    await adapter.deleteBoard("board-1");
+    expect(await adapter.getBoard("board-1")).toBeUndefined();
+  });
+
+  it("throws when updating a board that does not exist", async () => {
+    await expect(adapter.updateBoard("missing", { name: "x" })).rejects.toThrow();
+  });
+
+  it("creates canvas elements and lists them by board", async () => {
+    await adapter.createBoard(makeBoard());
     await adapter.createCanvasElement(makeCanvasElement({ id: "element-1" }));
     await adapter.createCanvasElement(makeCanvasElement({ id: "element-2", type: "table" }));
 
-    const elements = await adapter.listCanvasElementsByEntry("entry-1");
+    const elements = await adapter.listCanvasElementsByBoard("board-1");
     expect(elements).toHaveLength(2);
   });
 
   it("updates and deletes a canvas element", async () => {
     await adapter.createCanvasElement(makeCanvasElement());
     await adapter.updateCanvasElement("element-1", { x: 50, y: 75 });
-    const elements = await adapter.listCanvasElementsByEntry("entry-1");
+    const elements = await adapter.listCanvasElementsByBoard("board-1");
     expect(elements[0]).toMatchObject({ x: 50, y: 75 });
 
     await adapter.deleteCanvasElement("element-1");
-    expect(await adapter.listCanvasElementsByEntry("entry-1")).toHaveLength(0);
+    expect(await adapter.listCanvasElementsByBoard("board-1")).toHaveLength(0);
   });
 
   it("throws when updating a journal that does not exist", async () => {

@@ -1,6 +1,6 @@
 import type { DataPayload, ModuleDefinition } from "../modules.js";
 import type { AssetDefinition, ThemeDefinition } from "../theme.js";
-import type { CanvasElement, Entry, Journal } from "../types.js";
+import type { Board, CanvasElement, Entry, Journal } from "../types.js";
 
 export interface AdapterCacheEntry {
   adapterId: string;
@@ -23,8 +23,14 @@ export interface DatabaseAdapter {
   updateEntry(id: string, patch: Partial<Entry>): Promise<void>;
   deleteEntry(id: string): Promise<void>;
 
+  createBoard(board: Board): Promise<void>;
+  getBoard(id: string): Promise<Board | undefined>;
+  listBoards(): Promise<Board[]>;
+  updateBoard(id: string, patch: Partial<Board>): Promise<void>;
+  deleteBoard(id: string): Promise<void>;
+
   createCanvasElement(element: CanvasElement): Promise<void>;
-  listCanvasElementsByEntry(entryId: string): Promise<CanvasElement[]>;
+  listCanvasElementsByBoard(boardId: string): Promise<CanvasElement[]>;
   updateCanvasElement(id: string, patch: Partial<CanvasElement>): Promise<void>;
   deleteCanvasElement(id: string): Promise<void>;
 

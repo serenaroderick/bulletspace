@@ -566,6 +566,17 @@ to a different planned implementation, not abandoned.
 
 ## Phase 6.1: Figma-Style UI Shell
 
+**Superseded by Phase 6.2.5.** Everything below shipped and worked as
+described, but real usage surfaced that "one bounded canvas page per
+journal entry" was the wrong home for a Figma-style board: it forced
+stickers into isolated per-entry pages disconnected from the dashboard's
+own modules, when what was actually wanted is one board where modules and
+decoration share the same freeform space. Phase 6.2.5 replaces per-entry
+canvas pages with a `Board` entity decoupled from `Entry` entirely. Kept
+here, unedited, as the historical record of what was built and verified —
+none of it was wasted: the bounded-page math, grid/parallax rendering,
+and toolbar all carry forward onto `Board` unchanged, just re-keyed.
+
 **Goal:** replace the current UI with a Figma/Adobe-like interface.
 
 **Scope addition mid-implementation**: before writing code, the "does the
@@ -667,7 +678,7 @@ include. Everything below is built and verified against **stickers**, the
 only real `CanvasElement` content that exists today (Phase 5.5) — the
 mechanism (drag, snap, z-index, persistence) is generic over
 `CanvasElement`, so wiring an actual module in later is additive, not a
-rebuild.
+rebuild. **That "later" is Phase 6.2.5.**
 
 **Build-order change from the original DoD, made deliberately before
 writing code**: grid-snap ships first and is the default, not freeform.
@@ -712,9 +723,36 @@ grid you can see.
       preserved, opposite corner stayed fixed); a rotate-handle sweep
       landed at persisted rotations of exactly ~45° and ~90°, both
       surviving a full leave/re-enter of the canvas.
-- [ ] Multi-select — not built yet.
-- [ ] Grouping — not built yet.
-- [ ] Context menu — not built yet.
+- [x] Multi-select — shift-click adds/removes an element (or its whole
+      group, see below) from the selection; clicking empty canvas clears
+      it. Selected elements share one `Transformer`, which Konva supports
+      natively across multiple nodes. Dragging any selected element moves
+      every other selected element by the same delta (`multiDragRef`
+      records each member's start position on drag-start, replays the
+      delta on every drag-move, persists all of them on drag-end) — a
+      multi-select drags as one rigid unit. Verified live: dragging worked
+      as a group, and resize/rotate correctly manipulate the shared
+      bounding box.
+- [x] Grouping — Cmd/Ctrl+G groups the current selection under a shared
+      `groupId` (`CanvasElement.groupId: string | null`, elements with the
+      same id move/select/delete together); Cmd/Ctrl+Shift+G ungroups.
+      Clicking any member of a group selects the whole group. Design was
+      deliberately narrowed before writing code (see the three-round
+      interaction-model discussion above): no per-element lock, hover bar,
+      or Lock All yet — those stay deferred pending real usage, same as
+      Round 3 already concluded for the global Edit Mode toggle.
+- [x] Context menu — right-click a sticker (Edit Mode on) shows Bring to
+      Front / Send to Back / Duplicate / Delete, plus Group/Ungroup when
+      the current selection makes one applicable. Closes on outside click
+      or Escape. Verified live via typecheck + full test suite passing
+      (107/107 across both packages) — **not** verified in an actual
+      browser this pass (no browser-automation tool available in that
+      session); a follow-up session confirmed drag/resize/multi-select all
+      work live, but the context menu specifically was never actually
+      reached in that testing, since it turned out the tester was
+      right-clicking the dashboard's static module list, not a sticker on
+      the (separate, per-entry) canvas — see Phase 6.2.5 below for why
+      that confusion is exactly what prompted the next phase.
 
 **Two real bugs found via this live testing, not code review:**
 
@@ -796,11 +834,112 @@ shadow) instead of pushing it — matches the Figma-panel aesthetic Phase
 
 **Success criteria:** modules can be freely dragged, resized, rotated,
 layered, grouped, and reordered via context menu, with every property
-surviving a reload. **Mostly met for stickers**: drag, snap, z-index,
-persistence, resize, and rotation are all done and verified live;
-multi-select, grouping, and the context menu are not built. Extending
-this to actual dashboard modules requires first putting them on the
-canvas at all, which is out of this phase's scope as written.
+surviving a reload. **Met for stickers**: drag, snap, z-index,
+persistence, resize, rotation, multi-select, grouping, and the context
+menu are all built (context menu verified via tests/typecheck, not yet
+live-clicked). **Still not met for actual dashboard modules** — as this
+phase always scoped it, they were still hardcoded React components in a
+static dashboard list, not `CanvasElement`s, so none of this mechanism
+applied to them yet. That gap is exactly what Phase 6.2.5 closes.
+
+## Phase 6.2.5: Dashboard Canvas — Modules as Board Elements
+
+**Goal:** one Figma-style board, decoupled from any single journal entry,
+where the 8 dashboard modules and stickers are all just `CanvasElement`s
+that can be freely placed, dragged, resized, and grouped together —
+replacing both the static `.dashboard` module list and the per-entry
+canvas Phase 6.1 built.
+
+**Why this phase exists:** live-testing Phase 6.2's finished work exposed
+that the per-entry canvas model didn't serve its own purpose — opening an
+entry's canvas gave an isolated sticker board with no modules on it,
+because modules were still a separate, hardcoded list on the home screen.
+Confirmed direction: journal entries go back to being plain markdown/mood
+entries with no canvas of their own; a new `Board` entity (not tied to any
+`Entry`) is the one and only canvas, greeting you blank, Figma-style.
+
+- [ ] `Board` entity — `packages/core/src/types.ts`: `{ id, name,
+      canvasConfig, createdAt, updatedAt }`. `CanvasConfig` moves off
+      `Entry` onto `Board`; `Entry` loses `canvasConfig` entirely.
+      `CanvasElement.entryId` renamed to `boardId`.
+- [ ] `DatabaseAdapter` gains Board CRUD (`createBoard`/`getBoard`/
+      `listBoards`/`updateBoard`/`deleteBoard`), same shape as the
+      existing Journal/Entry CRUD, implemented across `InMemoryAdapter`,
+      `IndexedDBAdapter` (new `boards` store; `canvasElements`'s `entryId`
+      index can't be renamed in place, so this is a real migration, not a
+      purely additive bump — `DB_VERSION` 4→5, `canvasElements` dropped
+      and recreated with a `boardId` index for any pre-v5 database,
+      dropping existing canvas elements on upgrade, which is fine since
+      there's no real user data riding on this yet and a blank canvas is
+      the explicit goal), and `FileSystemAdapter` (new `board:` key
+      prefix, same convention as the rest).
+- [ ] `ensureDefaultBoard()` — `apps/web/src/lib/board.ts`, mirrors
+      `ensureDefaultJournal`'s memoized-promise pattern (same StrictMode
+      double-invoke race Phase 3 found for journals applies here too).
+      Exactly one board exists today, auto-created.
+- [ ] `EntryCanvas.tsx` renamed/repurposed to `BoardCanvas.tsx` — drops
+      every Entry-pagination prop (`pageIndex`/`pageCount`/`previousEntryId`/
+      `nextEntryId`/`onNewPage`/`onDuplicatePage`) and the toolbar UI that
+      drove them; takes `{ board, onConfigChange }` instead. Everything
+      else (drag/snap/multi-select/group/z-index/context-menu/Transformer/
+      grid/parallax/background) carries forward unchanged, just reading
+      `board.canvasConfig` instead of `entry.canvasConfig`.
+- [ ] `CanvasElementType` gains `"module"` (`content: { moduleId }`).
+      `apps/web/src/modules/registry.ts` (mirrors `adapters/registry.ts`/
+      `themes/registry.ts`) maps each of the 8 module ids to a label and
+      default width/height, gating GitHub/Google Calendar behind
+      `isTauri()` exactly as `App.tsx` does today.
+- [ ] `BoardModuleHost` — the one new wiring component; reads a
+      `BoardContext` (entries/networkState/sharedModules, the same values
+      already threaded to the old `.dashboard` div) and renders the
+      matching module component by id. The 8 module components themselves
+      keep their existing prop signatures untouched.
+- [ ] Module elements render on the canvas via `react-konva-utils`'s
+      `Html` (new dependency — nothing in this repo currently syncs real
+      DOM content to a Konva node's transform; hand-rolling that math is
+      exactly the kind of thing Phase 5.6's parallax notes already flagged
+      as easy to get subtly wrong), nested inside the same draggable
+      `Group` stickers already use — `Html` is a rendering mechanism only,
+      it adds no new interaction code on top of the drag/select/multi-
+      select/group/context-menu machinery Phase 6.2 already built.
+- [ ] `Transformer` gets two new conditionals for mixed selections:
+      `keepRatio` only when every selected element is a sticker (modules
+      need free-aspect resize); `rotateEnabled` likewise sticker-only
+      (rotating an interactive form/button module doesn't make sense).
+- [ ] "Add Module" toolbar button/palette, structurally identical to the
+      existing sticker picker, listing `MODULE_REGISTRY` and placing a
+      new module element at the viewport center.
+- [ ] `App.tsx` — the static `.dashboard` div and the `openEntry`/
+      `EntryCanvas` branch are both removed; `BoardCanvas` for the single
+      default board renders in that slot instead, above the (unchanged)
+      entry-creation form and entry list. `handleNewPage`/
+      `handleDuplicatePage`/`handleEntryCanvasConfigChange` and the "Open
+      canvas" button are deleted along with them.
+
+**Success criteria:** the app opens to a blank Figma-style board; "Add
+Module" places any of the 8 dashboard modules onto it; modules and
+stickers can be freely dragged, resized (free-aspect for modules, locked
+for stickers), multi-selected, and grouped together; right-clicking a
+module or sticker shows the working context menu; layout survives a
+reload. `pnpm typecheck`/`pnpm test` pass, including the `IndexedDBAdapter`
+v4→v5 upgrade path.
+
+## Phase 6.2.6: Multiple Boards (deferred)
+
+**Goal:** more than one board — e.g. one per month, viewable later like a
+bujo time-capsule — without another data-model migration.
+
+Deliberately not built in 6.2.5: the `Board` entity there is already a
+real list keyed by id, not a hardcoded singleton (`ensureDefaultBoard`
+just always resolves to the first one). Adding this phase later is
+additive UI over existing plumbing — a board switcher/list, "New Board,"
+maybe month-named boards created on a schedule — not a further schema
+change. Left unscoped in detail until there's a concrete reason to build
+it (real usage wanting more than one board).
+
+- [ ] Board switcher UI (list/select boards)
+- [ ] "New Board" creation flow
+- [ ] Optional: auto-suggested/named boards per timeframe (e.g. monthly)
 
 ## Phase 6.3: Module Properties Panel
 
@@ -981,8 +1120,10 @@ schema validation ahead of a lightweight human review queue).
 | 5 | Optional backend | Yes (opt-in, self-hostable) | Accounts, encrypted sync, deployed PocketBase — OAuth relay/AI proxy/marketplace API still open |
 | 5.5 | Theme & asset foundation | No | Theme/asset schema, theme switcher, sticker picker, manual theme sharing |
 | 5.6 | Grid & parallax | No | 7 grid styles, configurable backgrounds, parallax layers |
-| 6.1 | Figma-style UI shell | No | Floating toolbar, top-right state toggle, collapsible right panel, zoom controls |
-| 6.2 | Draggable modules | No | Free placement, resize, rotate, multi-select, grouping, context menu |
+| 6.1 | Figma-style UI shell | No | *Superseded by 6.2.5* — bounded page/toolbar/zoom math carries forward |
+| 6.2 | Draggable modules | No | Free placement, resize, rotate, multi-select, grouping, context menu (stickers) |
+| 6.2.5 | Dashboard canvas | No (+1 new dep: `react-konva-utils`) | `Board` entity, modules as `CanvasElement`s, per-entry canvas retired |
+| 6.2.6 | Multiple boards | No | Deferred — board switcher, new board, timeframe boards |
 | 6.3 | Module properties panel | No | Data source/field mapping/filters/formulas/chart type UI, live preview |
 | 6.4 | Asset store panel | Yes (marketplace API) | Browse/search/install modules, themes, stickers, fonts |
 | 6.5 | Collage & layer management | No | Photo upload/manipulation/filters, layer panel, selection sync |
