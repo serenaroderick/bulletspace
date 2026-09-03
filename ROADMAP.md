@@ -1145,6 +1145,76 @@ across a reload. **Met on the automated side**: `pnpm typecheck`/
 live-verification pending the user's own click-through (no browser-
 automation tool available this session).
 
+## Phase 6.3.6: Custom Modules (Visual Module Editor)
+
+**Goal:** the real thing Phase 6.3 originally wanted, before being scoped
+down to "light config" because only Mood vs. Weather was
+`ModuleDefinition`-backed. A "Custom Module," added from the same "Add
+Module" picker everything else comes from, opens a full builder panel
+instead of the light-config one — pick a data source (or two + a join),
+add filters/formulas, pick a chart type, see it render live. This is the
+Visual Editor PITCH.md describes.
+
+- [x] Storage: the module's full `ModuleDefinition` lives inline at
+      `CanvasElement.content.moduleDef`, not a new `DatabaseAdapter`
+      entity — reuses the exact `handleModuleConfigChange`/
+      `onConfigChange` persistence path Tracker already established, so
+      no adapter/schema changes at all. Considered a real
+      `ModuleDefinition` row (unifying with imported/shared modules)
+      instead; rejected — would need a new `updateModuleDefinition`
+      method that doesn't exist, and would make an in-progress custom
+      module show up in `SharedModulesPanel`'s "installed" list
+      alongside genuinely imported ones, confusing since it's also
+      independently sitting on the canvas as its own element. Deleting
+      the element cleans up everything for free.
+- [x] `"custom"` added to `MODULE_REGISTRY`
+      (`apps/web/src/modules/registry.ts`) — not in
+      `CONFIGURABLE_MODULE_IDS`, since it gets its own dedicated panel.
+      `BoardCanvas.tsx`'s `handlePickModule` seeds a blank
+      `ModuleDefinition` (`blankModuleDefinition()`) when the picked
+      module is `"custom"`.
+- [x] Display: `CustomModuleCard.tsx` — the same `runModule` +
+      `ModuleOutputRenderer` pattern `SharedModuleCard.tsx` already
+      established for imported modules (a custom module is exactly the
+      same shape, just built here instead of pasted in), minus the
+      "(shared)" label and the redundant Remove button (the canvas
+      element's own context-menu Delete already covers that).
+- [x] Builder: `CustomModuleBuilderPanel.tsx` — name, single/merge type,
+      up to two adapter sources (from `listKnownAdapters()`, including
+      the "journal" pseudo-adapter) with an alias each, a join-on field
+      for merge (with a hint line listing each source's known raw field
+      ids, not a smart picker), a filter/formula/sort/group
+      transformation list (plain text against the existing
+      `"field > value"` / `"target = a + b"` mini-language — no syntax
+      highlighting, no new expression capability), and chart/table
+      output config. Every field commits immediately via `onConfigChange`
+      (no Save button), matching every other panel in this app.
+- [x] Live preview reruns `runModule` on every change, wrapped in
+      try/catch — `queryEngine.ts` already throws descriptive errors for
+      bad expressions (`evaluateFilter`/`applyFormula`); this panel just
+      surfaces that message instead of crashing, satisfying "invalid
+      configs clearly flagged" for free rather than needing new
+      validation logic.
+- [x] Share button reuses `serializeModuleShare`/`listKnownAdapters()`
+      unchanged (`MoodVsWeatherModule.handleShare`'s exact pattern) —
+      works regardless of where the `ModuleDefinition` is stored.
+- [x] `CustomModuleBuilderPanel` keeps local draft state (same reasoning
+      as `TrackerModule`: instant typing, no round-trip lag through the
+      async persistence path) — `BoardCanvas.tsx` renders it with
+      `key={element.id}` so switching which custom module is selected
+      forces a remount instead of showing stale state from the
+      previously-selected one.
+
+**Success criteria:** add a Custom Module, build a single-source one with
+a filter, confirm live preview updates and persists across reload; build
+a 2-source merge with a join and confirm it actually produces joined
+rows; type a broken filter expression and confirm the panel shows the
+error instead of crashing; Share a custom module and confirm the
+clipboard JSON round-trips through "Import a shared module." **Met on the
+automated side**: `pnpm typecheck`/`pnpm test` pass (120 tests) and a
+production `pnpm build` succeeds; live-verification pending the user's
+own click-through (no browser-automation tool available this session).
+
 ## Phase 6.4: Asset Store Panel
 
 **Goal:** users can browse, search, and install modules, themes, stickers,
@@ -1299,6 +1369,7 @@ schema validation ahead of a lightweight human review queue).
 | 6.2.6 | Multiple boards | No | Deferred — board switcher, new board, timeframe boards |
 | 6.3 | Module properties panel | No | Rescoped to "light config" — panel for 3 modules (Habit Streak, Tag Frequency, Mood vs. Weather); full query-engine panel deferred |
 | 6.3.5 | Tracker module | No | Excel-style checkbox habit matrix, config lives on the CanvasElement, no properties panel |
+| 6.3.6 | Custom modules | No | Real Visual Module Editor — build a ModuleDefinition-backed module via a panel, live preview, share |
 | 6.4 | Asset store panel | Yes (marketplace API) | Browse/search/install modules, themes, stickers, fonts |
 | 6.5 | Collage & layer management | No | Photo upload/manipulation/filters, layer panel, selection sync |
 | 6.6 | Undo/redo | No | 100-deep grouped history, Cmd+Z/Cmd+Shift+Z |

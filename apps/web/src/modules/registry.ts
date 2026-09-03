@@ -16,7 +16,8 @@ export type ModuleId =
   | "journal"
   | "shared-modules"
   | "theme-share"
-  | "tracker";
+  | "tracker"
+  | "custom";
 
 export interface ModuleRegistryEntry {
   id: ModuleId;
@@ -46,6 +47,7 @@ export const MODULE_REGISTRY: Record<ModuleId, ModuleRegistryEntry> = {
   "shared-modules": { id: "shared-modules", label: "Import a Shared Module", defaultWidth: 380, defaultHeight: 320 },
   "theme-share": { id: "theme-share", label: "Themes", defaultWidth: 380, defaultHeight: 320 },
   tracker: { id: "tracker", label: "Tracker", defaultWidth: 420, defaultHeight: 320 },
+  custom: { id: "custom", label: "Custom Module", defaultWidth: 420, defaultHeight: 320 },
 };
 
 export const MODULE_REGISTRY_LIST: ModuleRegistryEntry[] = Object.values(MODULE_REGISTRY);

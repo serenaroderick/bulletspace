@@ -1,4 +1,13 @@
-import type { AssetItem, Board, CanvasBackground, CanvasConfig, CanvasElement, GridConfig, ParallaxConfig } from "@bulletspace/core";
+import type {
+  AssetItem,
+  Board,
+  CanvasBackground,
+  CanvasConfig,
+  CanvasElement,
+  GridConfig,
+  ModuleDefinition,
+  ParallaxConfig,
+} from "@bulletspace/core";
 import type Konva from "konva";
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { Group, Layer, Rect, Shape, Stage, Text, Transformer } from "react-konva";
@@ -8,6 +17,7 @@ import { CONFIGURABLE_MODULE_IDS, type ModuleId, type ModuleRegistryEntry } from
 import { texturePatterns } from "../themes/textures";
 import { BoardModuleHost } from "./BoardModuleHost";
 import { CanvasSettingsPanel } from "./CanvasSettingsPanel";
+import { CustomModuleBuilderPanel } from "./CustomModuleBuilderPanel";
 import { ModulePicker } from "./ModulePicker";
 import { ModulePropertiesPanel } from "./ModulePropertiesPanel";
 import { StickerPicker } from "./StickerPicker";
@@ -26,6 +36,18 @@ const VOID_COLOR = "var(--bs-color-border)";
 
 function newElementId(): string {
   return crypto.randomUUID();
+}
+
+function blankModuleDefinition(): ModuleDefinition {
+  return {
+    id: crypto.randomUUID(),
+    name: "New Module",
+    version: "1.0.0",
+    type: "single",
+    sources: [],
+    transformations: [],
+    output: { type: "table", config: {} },
+  };
 }
 
 function newGroupId(): string {
@@ -206,7 +228,7 @@ export function BoardCanvas({ board, onConfigChange }: BoardCanvasProps) {
         id: newElementId(),
         boardId: board.id,
         type: "module",
-        content: { moduleId: module.id },
+        content: module.id === "custom" ? { moduleId: module.id, moduleDef: blankModuleDefinition() } : { moduleId: module.id },
         x: centerX,
         y: centerY,
         width: module.defaultWidth,
@@ -467,6 +489,15 @@ export function BoardCanvas({ board, onConfigChange }: BoardCanvasProps) {
       ? selectedElements[0]
       : null;
 
+  // Custom modules get their own, bigger builder panel instead -- see
+  // CustomModuleBuilderPanel.tsx.
+  const customModuleBuilderElement =
+    selectedElements.length === 1 &&
+    selectedElements[0].type === "module" &&
+    selectedElements[0].content.moduleId === "custom"
+      ? selectedElements[0]
+      : null;
+
   const handleModuleConfigChange = useCallback(
     async (elementId: string, patch: Record<string, unknown>) => {
       const target = elements.find((el) => el.id === elementId);
@@ -701,6 +732,19 @@ export function BoardCanvas({ board, onConfigChange }: BoardCanvasProps) {
               moduleId={propertiesPanelElement.content.moduleId as ModuleId}
               content={propertiesPanelElement.content}
               onChange={(patch) => handleModuleConfigChange(propertiesPanelElement.id, patch)}
+              onClose={() => setSelectedElementIds([])}
+            />
+          </div>
+        )}
+        {customModuleBuilderElement && (
+          <div className="board-canvas-floating-panel board-canvas-floating-panel-right">
+            {/* Keyed by element id -- CustomModuleBuilderPanel seeds its own local
+                draft state once on mount for responsive typing, so switching which
+                custom module is selected must force a remount, not just a prop update. */}
+            <CustomModuleBuilderPanel
+              key={customModuleBuilderElement.id}
+              moduleDef={customModuleBuilderElement.content.moduleDef as ModuleDefinition}
+              onChange={(patch) => handleModuleConfigChange(customModuleBuilderElement.id, patch)}
               onClose={() => setSelectedElementIds([])}
             />
           </div>

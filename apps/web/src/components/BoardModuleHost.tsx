@@ -1,5 +1,7 @@
+import type { ModuleDefinition } from "@bulletspace/core";
 import type { ModuleId } from "../modules/registry";
 import { useBoardContext } from "./BoardContext";
+import { CustomModuleCard } from "./modules/CustomModuleCard";
 import { EnergyFocusChart } from "./modules/EnergyFocusChart";
 import { GithubModule } from "./modules/GithubModule";
 import { GoogleCalendarModule } from "./modules/GoogleCalendarModule";
@@ -94,5 +96,7 @@ export function BoardModuleHost({ moduleId, content, onConfigChange }: BoardModu
           onConfigChange={onConfigChange}
         />
       );
+    case "custom":
+      return content.moduleDef ? <CustomModuleCard moduleDef={content.moduleDef as ModuleDefinition} entries={entries} /> : null;
   }
 }
